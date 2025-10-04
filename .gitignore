@@ -46,7 +46,7 @@ Thumbs.db
 .ipynb_checkpoints
 
 # Data files (don't commit large data)
-data/processed/
+#data/processed/
 data/raw/*.txt
 !data/raw/README.md
 
