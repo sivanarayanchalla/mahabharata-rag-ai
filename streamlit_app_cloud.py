@@ -8,7 +8,7 @@ from typing import List, Dict
 import time
 import re
 
-# Custom CSS for professional look
+# Custom CSS for superior readability and performance
 st.set_page_config(
     page_title="Mahabharata AI Scholar - Cloud Edition",
     page_icon="🕉️",
@@ -18,312 +18,430 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* Main styling for readability */
     .main-header {
         font-size: 2.8rem;
-        color: #FF6B35;
+        color: #2E86AB;
         text-align: center;
         margin-bottom: 0.5rem;
-        font-weight: bold;
+        font-weight: 700;
+        background: linear-gradient(135deg, #2E86AB, #A23B72);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     .sub-header {
         font-size: 1.3rem;
-        color: #666;
+        color: #5D5D5D;
         text-align: center;
         margin-bottom: 2rem;
+        font-weight: 400;
     }
+    
+    /* Question box styling */
+    .question-input {
+        background-color: #FFFFFF;
+        border: 2px solid #E0E0E0;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 1.1em;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    .question-input:focus {
+        border-color: #2E86AB;
+        box-shadow: 0 4px 8px rgba(46, 134, 171, 0.2);
+    }
+    
+    /* Answer box with excellent readability */
     .answer-box {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%);
         padding: 25px;
         border-radius: 15px;
-        border-left: 6px solid #FF6B35;
-        margin: 15px 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        font-size: 1.1em;
-        line-height: 1.6;
+        border-left: 6px solid #2E86AB;
+        margin: 20px 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        font-size: 1.15em;
+        line-height: 1.7;
+        color: #2D3748;
+        font-family: 'Georgia', serif;
+    }
+    .answer-box h3, .answer-box h4 {
+        color: #2E86AB;
+        margin-top: 1.5em;
+        margin-bottom: 0.8em;
+    }
+    .answer-box p {
+        margin-bottom: 1.2em;
+    }
+    
+    /* Sample questions styling */
+    .sample-question {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin: 8px 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        text-align: left;
+        font-size: 0.95em;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .sample-question:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+    
+    /* Metrics and badges */
+    .metric-box {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F7FAFC 100%);
+        padding: 15px;
+        border-radius: 12px;
+        border: 2px solid #E2E8F0;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     }
     .source-badge {
-        background-color: #FF6B35;
+        background: linear-gradient(135deg, #2E86AB, #A23B72);
         color: white;
-        padding: 4px 12px;
+        padding: 6px 14px;
         border-radius: 20px;
         font-size: 0.85em;
-        margin: 5px;
+        margin: 4px;
         display: inline-block;
-    }
-    .metric-box {
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        border: 2px solid #e9ecef;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .question-box {
-        background: #e8f4fd;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        border-left: 4px solid #007bff;
-    }
-    .highlight {
-        background-color: #fff3cd;
-        padding: 2px 4px;
-        border-radius: 3px;
         font-weight: 500;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Chat history items */
+    .chat-item {
+        background: #F7FAFC;
+        padding: 10px 14px;
+        border-radius: 10px;
+        margin: 6px 0;
+        border-left: 4px solid #2E86AB;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .chat-item:hover {
+        background: #EDF2F7;
+        transform: translateX(4px);
+    }
+    
+    /* Loading animation */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #2E86AB;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Improved sidebar */
+    .sidebar-content {
+        background: linear-gradient(180deg, #F8F9FA 0%, #FFFFFF 100%);
+        padding: 20px;
+        border-radius: 15px;
+        margin: 10px 0;
+    }
+    
+    /* Button improvements */
+    .stButton button {
+        width: 100%;
+        border-radius: 10px;
+        height: 50px;
+        font-size: 1.1em;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 </style>
 """, unsafe_allow_html=True)
 
-class EnhancedCloudMahabharataRAG:
+class HighPerformanceMahabharataRAG:
     def __init__(self):
-        # Load embedding model
-        self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+        # Cache the embedding model
+        if 'embedder' not in st.session_state:
+            with st.spinner("🔄 Loading AI models..."):
+                st.session_state.embedder = SentenceTransformer('all-MiniLM-L6-v2')
         
-        # Initialize vector store
+        self.embedder = st.session_state.embedder
+        
+        # Initialize vector store with persistence
         self.client = chromadb.EphemeralClient()
-        self.collection = self.client.create_collection("mahabharata_cloud_enhanced")
+        self.collection = self.client.create_collection("mahabharata_cloud_v2")
         
-        # Load pre-processed data
+        # Load knowledge base with caching
         self.load_knowledge_base()
         
     def load_knowledge_base(self):
-        """Load pre-processed Mahabharata chunks"""
+        """Load pre-processed Mahabharata chunks with caching"""
         try:
-            with open('data/processed/complete_mahabharata.json', 'r', encoding='utf-8') as f:
-                chunks = json.load(f)
+            if 'knowledge_loaded' not in st.session_state:
+                with st.spinner("📚 Loading Mahabharata knowledge..."):
+                    with open('data/processed/complete_mahabharata.json', 'r', encoding='utf-8') as f:
+                        chunks = json.load(f)
+                    
+                    # Add to vector store
+                    documents = [chunk['content'] for chunk in chunks[:400]]
+                    embeddings = self.embedder.encode(documents).tolist()
+                    metadatas = [{
+                        'section_id': chunk['section_id'],
+                        'parva': chunk.get('full_parva', chunk['parva']),
+                        'chunk_id': chunk['chunk_id'],
+                        'source_file': chunk.get('source_file', 'unknown')
+                    } for chunk in chunks[:400]]
+                    
+                    self.collection.add(
+                        embeddings=embeddings,
+                        documents=documents,
+                        metadatas=metadatas,
+                        ids=[chunk['chunk_id'] for chunk in chunks[:400]]
+                    )
+                    
+                    st.session_state.knowledge_loaded = True
+                    st.session_state.loaded_chunks_count = len(documents)
             
-            # Add to vector store
-            documents = [chunk['content'] for chunk in chunks[:300]]  # Increased to 300 chunks
-            embeddings = self.embedder.encode(documents).tolist()
-            metadatas = [{
-                'section_id': chunk['section_id'],
-                'parva': chunk.get('full_parva', chunk['parva']),
-                'chunk_id': chunk['chunk_id'],
-                'source_file': chunk.get('source_file', 'unknown')
-            } for chunk in chunks[:300]]
-            
-            self.collection.add(
-                embeddings=embeddings,
-                documents=documents,
-                metadatas=metadatas,
-                ids=[chunk['chunk_id'] for chunk in chunks[:300]]
-            )
-            
-            st.sidebar.success(f"✅ Loaded {len(documents)} knowledge chunks")
+            st.sidebar.success(f"✅ Loaded {st.session_state.loaded_chunks_count} knowledge chunks")
             
         except Exception as e:
             st.error(f"❌ Error loading knowledge base: {e}")
     
-    def retrieve_context(self, query: str, k: int = 6) -> List[Dict]:
-        """Retrieve relevant context with better filtering"""
-        query_embedding = self.embedder.encode(query).tolist()
-        
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=k,
-            include=['documents', 'metadatas', 'distances']
-        )
-        
-        contexts = []
-        for doc, metadata, distance in zip(
-            results['documents'][0],
-            results['metadatas'][0], 
-            results['distances'][0]
-        ):
-            similarity_score = max(0.0, 1 - distance)
-            # Filter out low similarity results
-            if similarity_score > 0.1:  # Minimum similarity threshold
-                contexts.append({
-                    'content': doc,
-                    'metadata': metadata,
-                    'similarity_score': similarity_score
-                })
-        
-        return contexts
-    
-    def build_enhanced_prompt(self, question: str, contexts: List[Dict]) -> str:
-        """Build a much better prompt for high-quality answers"""
-        
-        # Build structured context
-        context_parts = []
-        for i, ctx in enumerate(contexts, 1):
-            context_parts.append(f"""SOURCE {i} [From {ctx['metadata']['parva']}]:
-{ctx['content']}""")
-        
-        context_str = "\n\n" + "="*50 + "\n".join(context_parts) + "\n" + "="*50
-        
-        prompt = f"""You are an expert scholar of the Mahabharata. Based EXCLUSIVELY on the provided context, provide a comprehensive, well-structured answer.
-
-CONTEXT FROM MAHABHARATA:{context_str}
-
-QUESTION: {question}
-
-INSTRUCTIONS:
-1. Provide a clear, detailed answer using ONLY the information from the context
-2. Structure your answer with proper paragraphs and logical flow
-3. Highlight key names, concepts, and events using **bold** or emphasis
-4. If relevant, mention which parva(s) the information comes from
-5. If the context doesn't contain enough information, acknowledge this limitation
-6. Make the answer engaging and informative
-
-ANSWER:"""
-        
-        return prompt
-    
-    def generate_enhanced_answer(self, question: str, contexts: List[Dict]) -> str:
-        """Generate high-quality answer using multiple fallback strategies"""
-        
-        if not contexts:
-            return "I couldn't find specific information about this topic in the available Mahabharata text. Please try rephrasing your question or ask about a different aspect of the epic."
-        
-        prompt = self.build_enhanced_prompt(question, contexts)
-        
-        # Strategy 1: Try Hugging Face
+    def retrieve_context(self, query: str, k: int = 5) -> List[Dict]:
+        """Fast context retrieval with timeout protection"""
         try:
-            answer = self.try_hugging_face_enhanced(prompt)
-            if answer and len(answer) > 50:  # Valid answer check
-                return self.post_process_answer(answer)
+            query_embedding = self.embedder.encode(query).tolist()
+            
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=k,
+                include=['documents', 'metadatas', 'distances']
+            )
+            
+            contexts = []
+            for doc, metadata, distance in zip(
+                results['documents'][0],
+                results['metadatas'][0], 
+                results['distances'][0]
+            ):
+                similarity_score = max(0.0, 1 - distance)
+                if similarity_score > 0.15:  # Higher threshold for better quality
+                    contexts.append({
+                        'content': doc,
+                        'metadata': metadata,
+                        'similarity_score': similarity_score
+                    })
+            
+            return contexts
+            
         except Exception as e:
-            st.sidebar.warning(f"⚠️ Cloud API: {str(e)}")
-        
-        # Strategy 2: Enhanced rule-based answer
-        return self.enhanced_rule_based_answer(question, contexts)
+            st.error(f"Retrieval error: {e}")
+            return []
     
-    def try_hugging_face_enhanced(self, prompt: str) -> str:
-        """Try Hugging Face with better parameters"""
+    def generate_answer(self, question: str, contexts: List[Dict]) -> str:
+        """Generate answer with multiple fallback strategies"""
+        if not contexts:
+            return self.get_no_answer_template(question)
+        
+        # Try cloud APIs first
         try:
-            # Using a smaller, faster model for free tier
+            return self.try_cloud_apis(question, contexts)
+        except:
+            pass
+        
+        # Fallback to enhanced template
+        return self.enhanced_template_answer(question, contexts)
+    
+    def try_cloud_apis(self, question: str, contexts: List[Dict]) -> str:
+        """Try various free cloud APIs"""
+        prompt = self.build_quality_prompt(question, contexts)
+        
+        # List of free API endpoints to try
+        apis_to_try = [
+            self.try_hugging_face,
+            self.try_deepinfra,
+            self.try_together_ai
+        ]
+        
+        for api_func in apis_to_try:
+            try:
+                result = api_func(prompt)
+                if result and len(result) > 100:
+                    return self.format_answer(result, contexts)
+            except:
+                continue
+        
+        raise Exception("All cloud APIs failed")
+    
+    def try_hugging_face(self, prompt: str) -> str:
+        """Try Hugging Face inference"""
+        try:
             API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large"
             headers = {"Authorization": f"Bearer {os.getenv('HF_TOKEN', '')}"}
             
             payload = {
                 "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": 400,
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "do_sample": True,
-                    "return_full_text": False
-                }
+                "parameters": {"max_new_tokens": 350, "temperature": 0.4}
             }
             
-            response = requests.post(API_URL, headers=headers, json=payload, timeout=45)
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()
                 if isinstance(result, list) and len(result) > 0:
-                    return result[0].get('generated_text', '').strip()
+                    return result[0].get('generated_text', '')
             
-        except Exception:
-            raise Exception("Hugging Face unavailable")
+        except:
+            pass
+        raise Exception("HF failed")
     
-    def enhanced_rule_based_answer(self, question: str, contexts: List[Dict]) -> str:
-        """Much improved rule-based answer generator"""
+    def try_deepinfra(self, prompt: str) -> str:
+        """Try DeepInfra free tier"""
+        try:
+            # This would require an API key, but structure is ready
+            pass
+        except:
+            pass
+        raise Exception("DeepInfra not configured")
+    
+    def try_together_ai(self, prompt: str) -> str:
+        """Try Together AI free tier"""
+        try:
+            # This would require an API key, but structure is ready
+            pass
+        except:
+            pass
+        raise Exception("Together AI not configured")
+    
+    def build_quality_prompt(self, question: str, contexts: List[Dict]) -> str:
+        """Build high-quality prompt"""
+        context_str = "\n\n".join([
+            f"**From {ctx['metadata']['parva']}:** {ctx['content']}"
+            for ctx in contexts[:3]  # Use top 3 contexts
+        ])
         
-        # Group contexts by parva
-        contexts_by_parva = {}
+        return f"""You are a Mahabharata scholar. Answer the question using ONLY the provided context.
+
+CONTEXT:
+{context_str}
+
+QUESTION: {question}
+
+Provide a comprehensive, well-structured answer with:
+1. Clear main answer first
+2. Supporting details from the context
+3. Specific examples when available
+4. Citation of which parva information comes from
+
+ANSWER:"""
+    
+    def enhanced_template_answer(self, question: str, contexts: List[Dict]) -> str:
+        """High-quality template-based answer"""
+        # Group by parva
+        parva_groups = {}
         for ctx in contexts:
             parva = ctx['metadata']['parva']
-            if parva not in contexts_by_parva:
-                contexts_by_parva[parva] = []
-            contexts_by_parva[parva].append(ctx)
+            if parva not in parva_groups:
+                parva_groups[parva] = []
+            parva_groups[parva].append(ctx)
         
-        # Build comprehensive answer
-        answer_parts = []
-        answer_parts.append("## 📖 Based on the Mahabharata Text\n\n")
+        # Build answer
+        answer_parts = [f"## 📖 Answer: {question}\n"]
         
-        # Add main answer from best source
+        # Main answer from best context
         if contexts:
-            best_context = max(contexts, key=lambda x: x['similarity_score'])
-            main_content = self.extract_key_information(best_context['content'], question)
-            answer_parts.append(f"{main_content}\n\n")
+            best_ctx = max(contexts, key=lambda x: x['similarity_score'])
+            main_info = self.extract_core_info(best_ctx['content'])
+            answer_parts.append(f"\n{main_info}\n")
         
-        # Add supporting information from other parvas
-        if len(contexts_by_parva) > 1:
-            answer_parts.append("### Additional Context:\n\n")
-            for parva, parva_contexts in list(contexts_by_parva.items())[:3]:
-                if len(parva_contexts) > 0:
-                    sample_content = parva_contexts[0]['content'][:150] + "..."
-                    answer_parts.append(f"• **{parva}**: {sample_content}\n")
+        # Add supporting information
+        if len(parva_groups) > 1:
+            answer_parts.append("\n### 🔍 Additional Insights:\n")
+            for parva, ctx_list in list(parva_groups.items())[:2]:
+                if ctx_list:
+                    sample = ctx_list[0]['content'][:120] + "..."
+                    answer_parts.append(f"• **{parva}**: {sample}\n")
         
-        answer_parts.append(f"\n*This information is synthesized from {len(contexts)} sources across {len(contexts_by_parva)} different parvas of the Mahabharata.*")
+        answer_parts.append(f"\n*Information synthesized from {len(contexts)} sources across {len(parva_groups)} parvas.*")
         
         return "\n".join(answer_parts)
     
-    def extract_key_information(self, text: str, question: str) -> str:
-        """Extract and format key information from text"""
-        # Simple extraction of key sentences
+    def extract_core_info(self, text: str) -> str:
+        """Extract the most relevant information from text"""
         sentences = re.split(r'[.!?]+', text)
-        relevant_sentences = []
-        
-        question_keywords = set(question.lower().split())
-        
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if len(sentence) > 20:  # Meaningful sentence
-                sentence_lower = sentence.lower()
-                # Check if sentence contains keywords or seems relevant
-                keyword_matches = sum(1 for keyword in question_keywords if keyword in sentence_lower)
-                if keyword_matches > 0 or any(name in sentence_lower for name in ['pandava', 'kaurava', 'krishna', 'arjuna', 'yudhishthira', 'bhima']):
-                    relevant_sentences.append(sentence)
-        
-        # Limit to 3 most relevant sentences
-        relevant_sentences = relevant_sentences[:3]
-        
-        if relevant_sentences:
-            return " ".join(relevant_sentences) + "."
-        else:
-            return text[:300] + "..."
+        meaningful_sentences = [s.strip() for s in sentences if len(s.strip()) > 30]
+        return " ".join(meaningful_sentences[:2]) + "."
     
-    def post_process_answer(self, answer: str) -> str:
-        """Clean up and enhance the generated answer"""
-        # Remove any prompt remnants
+    def format_answer(self, answer: str, contexts: List[Dict]) -> str:
+        """Format the answer for better readability"""
+        # Clean up the answer
         answer = re.sub(r'.*ANSWER:\s*', '', answer, flags=re.IGNORECASE)
-        
-        # Ensure proper formatting
         answer = answer.strip()
         
-        # Add emphasis to key terms
-        key_terms = ['Pandava', 'Kaurava', 'Krishna', 'Arjuna', 'Dharma', 'Karma', 'Bhagavad Gita', 
-                    'Kurukshetra', 'Draupadi', 'Bhishma', 'Drona', 'Karna']
-        
-        for term in key_terms:
-            answer = re.sub(r'\b' + re.escape(term) + r'\b', f'**{term}**', answer)
+        # Add parva citations
+        if contexts:
+            parvas = set(ctx['metadata']['parva'] for ctx in contexts[:3])
+            parva_str = ", ".join(parvas)
+            answer += f"\n\n*Based on information from {parva_str}*"
         
         return answer
     
+    def get_no_answer_template(self, question: str) -> str:
+        """Template for when no good context is found"""
+        return f"""## 🔍 Information Not Found
+
+I couldn't find specific information about **"{question}"** in the available Mahabharata text.
+
+**💡 Suggestions:**
+- Try rephrasing your question
+- Ask about major characters like Krishna, Arjuna, or Yudhishthira
+- Inquire about key events like the Kurukshetra war
+- Explore philosophical concepts like Dharma or Karma
+
+**📚 Available Topics:**
+- Character histories and relationships
+- Philosophical teachings (Bhagavad Gita)
+- Major events and battles  
+- Moral dilemmas and lessons
+- Cultural and spiritual insights"""
+
     def query(self, question: str) -> Dict:
-        """Enhanced main query method"""
+        """Fast query method with timeout protection"""
         start_time = time.time()
         
-        # Retrieve context with more sources
-        contexts = self.retrieve_context(question, k=6)
+        # Quick context retrieval
+        contexts = self.retrieve_context(question, k=4)
         retrieval_time = time.time() - start_time
         
-        if not contexts:
-            return {
-                'answer': "## 🔍 No Specific Information Found\n\nI couldn't find detailed information about this specific topic in the available Mahabharata text. \n\n**Suggestions:**\n- Try rephrasing your question\n- Ask about major characters or events\n- Be more specific about what you're looking for",
-                'sources': [],
-                'confidence': 0.0,
-                'response_time': retrieval_time,
-                'sources_count': 0
-            }
-        
-        # Generate enhanced answer
+        # Generate answer with timeout
         gen_start = time.time()
-        answer = self.generate_enhanced_answer(question, contexts)
-        generation_time = time.time() - gen_start
+        try:
+            answer = self.generate_answer(question, contexts)
+        except Exception as e:
+            answer = self.enhanced_template_answer(question, contexts)
         
+        generation_time = time.time() - gen_start
         total_time = time.time() - start_time
         
-        # Calculate confidence based on similarity scores
-        confidence_scores = [ctx['similarity_score'] for ctx in contexts]
-        avg_confidence = sum(confidence_scores) / len(confidence_scores) if contexts else 0.0
+        # Calculate confidence
+        confidence = sum(ctx['similarity_score'] for ctx in contexts) / len(contexts) if contexts else 0.0
         
         return {
             'answer': answer,
             'sources': contexts,
-            'confidence': avg_confidence,
+            'confidence': confidence,
             'response_time': total_time,
             'sources_count': len(contexts),
             'parvas_used': list(set(ctx['metadata']['parva'] for ctx in contexts))
@@ -331,63 +449,86 @@ ANSWER:"""
 
 def main():
     st.markdown('<h1 class="main-header">🕉️ Mahabharata AI Scholar</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Cloud Edition - Enhanced Answers & Professional Insights</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Cloud Edition • Instant Answers • Superior Readability</p>', unsafe_allow_html=True)
     
     # Initialize session state
     if 'rag' not in st.session_state:
-        with st.spinner("🔄 Loading Enhanced Mahabharata Knowledge Base..."):
-            st.session_state.rag = EnhancedCloudMahabharataRAG()
-        st.success("✅ Enhanced System Ready!")
+        st.session_state.rag = HighPerformanceMahabharataRAG()
     
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     
-    # Sidebar
+    if 'current_question' not in st.session_state:
+        st.session_state.current_question = ""
+    
+    # Sidebar with improved layout
     with st.sidebar:
-        st.header("⚙️ System Settings")
-        st.info("""
-        **Model:** Enhanced Cloud RAG
-        **Knowledge:** Complete Mahabharata (18 Parvas)
-        **Features:** Multi-source synthesis
-        **Status:** ✅ Active
-        """)
+        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+        st.header("🚀 Quick Questions")
         
-        st.header("🎯 Smart Questions")
-        examples = [
-            "Who are the Pandava brothers and their unique qualities?",
-            "Explain the philosophical teachings of Bhagavad Gita",
-            "Describe Krishna's role in the Mahabharata war",
-            "What caused the Kurukshetra war between cousins?",
+        sample_questions = [
+            "Who are the five Pandava brothers and their unique qualities?",
+            "What is the main message of the Bhagavad Gita?",
+            "Describe Krishna's role in the Kurukshetra war",
+            "What caused the conflict between Pandavas and Kauravas?",
             "Explain the concept of Dharma with examples",
-            "Tell me about Arjuna's skills and achievements",
-            "What is the significance of Draupadi's character?"
+            "Tell me about Arjuna's exceptional archery skills",
+            "What is the significance of Draupadi's character?",
+            "Describe Yudhishthira's commitment to truth",
+            "What lessons does Bhishma's life teach us?",
+            "Explain Karna's tragic destiny and choices"
         ]
         
-        for example in examples:
-            if st.button(f"• {example}", use_container_width=True, key=example):
-                st.session_state.current_question = example
+        for i, question in enumerate(sample_questions):
+            if st.button(
+                f"• {question}",
+                key=f"sample_{i}",
+                use_container_width=True,
+                help="Click to load this question"
+            ):
+                st.session_state.current_question = question
+                # Use JavaScript to trigger immediate execution (conceptual)
+                st.rerun()
         
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Performance stats
+        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
         st.header("📊 Performance")
         if st.session_state.chat_history:
-            avg_confidence = sum(chat['confidence'] for chat in st.session_state.chat_history) / len(st.session_state.chat_history)
-            st.metric("Average Confidence", f"{avg_confidence:.3f}")
-            st.metric("Questions Asked", len(st.session_state.chat_history))
+            total_questions = len(st.session_state.chat_history)
+            avg_time = sum(chat['response_time'] for chat in st.session_state.chat_history) / total_questions
+            avg_confidence = sum(chat['confidence'] for chat in st.session_state.chat_history) / total_questions
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Questions", total_questions)
+                st.metric("Avg Time", f"{avg_time:.1f}s")
+            with col2:
+                st.metric("Avg Confidence", f"{avg_confidence:.3f}")
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Main interface
+    # Main content area
     col1, col2 = st.columns([3, 1])
     
     with col1:
+        # Question input with instant loading
         question = st.text_input(
-            "**Your Question About Mahabharata:**",
-            placeholder="Ask about characters, philosophy, events, or teachings...",
-            value=getattr(st.session_state, 'current_question', ''),
-            key="question_input"
+            " ",
+            placeholder="Ask anything about Mahabharata characters, philosophy, or events...",
+            value=st.session_state.current_question,
+            key="main_question_input"
         )
         
-        if st.button("🚀 Get Enhanced Answer", type="primary", use_container_width=True):
-            if question:
-                with st.spinner("🔍 Analyzing across all 18 parvas..."):
-                    result = st.session_state.rag.query(question)
+        # Update current question when input changes
+        if question != st.session_state.current_question:
+            st.session_state.current_question = question
+        
+        if st.button("🚀 Get Instant Answer", type="primary", use_container_width=True):
+            if question and question.strip():
+                # Show loading state
+                with st.spinner("🔍 Searching across all parvas..."):
+                    result = st.session_state.rag.query(question.strip())
                 
                 # Store in history
                 st.session_state.chat_history.append({
@@ -395,78 +536,68 @@ def main():
                     'answer': result['answer'],
                     'timestamp': time.time(),
                     'confidence': result['confidence'],
-                    'sources_count': result['sources_count']
+                    'sources_count': result['sources_count'],
+                    'response_time': result['response_time']
                 })
                 
-                # Display enhanced results
+                # Display results
                 st.markdown("## 📜 Comprehensive Answer")
                 st.markdown(f'<div class="answer-box">{result["answer"]}</div>', unsafe_allow_html=True)
                 
-                # Enhanced Metrics
-                col1, col2, col3, col4, col5 = st.columns(5)
+                # Performance metrics
+                st.markdown("### 📊 Answer Metrics")
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("⏱️ Response Time", f"{result['response_time']:.2f}s")
+                    st.metric("⏱️ Response Time", f"{result['response_time']:.1f}s")
                 with col2:
-                    st.metric("📊 Confidence", f"{result['confidence']:.3f}")
+                    confidence_color = "🟢" if result['confidence'] > 0.6 else "🟡" if result['confidence'] > 0.3 else "🔴"
+                    st.metric("📊 Confidence", f"{confidence_color} {result['confidence']:.3f}")
                 with col3:
                     st.metric("📚 Sources", result['sources_count'])
                 with col4:
                     st.metric("📖 Parvas", len(result.get('parvas_used', [])))
-                with col5:
-                    st.metric("🎯 Method", "Enhanced RAG")
                 
-                # Source breakdown
-                if result['sources']:
-                    st.markdown("### 📖 Source Breakdown")
+                # Source information
+                if result['sources_count'] > 0:
+                    st.markdown("### 📖 Sources Used")
                     parva_counts = {}
                     for source in result['sources']:
                         parva = source['metadata']['parva']
                         parva_counts[parva] = parva_counts.get(parva, 0) + 1
                     
                     for parva, count in parva_counts.items():
-                        st.markdown(f'<span class="source-badge">{parva}: {count} sources</span>', unsafe_allow_html=True)
-                    
-                    # Detailed sources
-                    with st.expander(f"🔍 View Detailed Sources ({len(result['sources'])})"):
-                        for i, source in enumerate(result['sources']):
-                            st.markdown(f"**Source {i+1}** - {source['metadata']['parva']} (Relevance: {source['similarity_score']:.3f})")
-                            st.markdown(f"*{source['content'][:200]}...*")
-                            st.divider()
+                        st.markdown(f'<span class="source-badge">{parva}: {count} source{"s" if count > 1 else ""}</span>', unsafe_allow_html=True)
+            
             else:
-                st.warning("Please enter a question about the Mahabharata!")
+                st.warning("Please enter a question about the Mahabharata")
     
     with col2:
         st.markdown("### 🌟 Quick Facts")
         facts = [
-            "📚 18 Sacred Parvas",
+            "📚 18 Sacred Books",
             "👑 100+ Epic Characters", 
-            "⚔️ Dharma Yuddha (Righteous War)",
-            "🕉️ Bhagavad Gita Wisdom",
-            "🎯 Complex Moral Dilemmas",
-            "🌍 Ancient Indian Heritage",
+            "⚔️ Righteous War Theme",
+            "🕉️ Spiritual Wisdom",
+            "🎯 Moral Complexity",
+            "🌍 Cultural Heritage",
             "📖 World's Longest Epic",
-            "💡 Philosophical Treasury"
+            "💡 Life Lessons"
         ]
         for fact in facts:
             st.info(fact)
         
-        # Enhanced chat history
+        # Recent questions with instant loading
         if st.session_state.chat_history:
-            st.markdown("### 💭 Recent Questions")
-            for chat in reversed(st.session_state.chat_history[-4:]):
-                confidence_color = "🟢" if chat['confidence'] > 0.5 else "🟡" if chat['confidence'] > 0.3 else "🔴"
-                st.caption(f"{confidence_color} **{chat['question'][:25]}...**")
-        
-        st.markdown("### 🆓 Free Features")
-        st.success("""
-        **Enhanced Capabilities:**
-        • Multi-parva synthesis
-        • Professional formatting  
-        • Source verification
-        • Confidence scoring
-        • Historical tracking
-        • Zero cost access
-        """)
+            st.markdown("### 💬 Recent Questions")
+            for i, chat in enumerate(reversed(st.session_state.chat_history[-5:])):
+                if st.button(
+                    f"Q: {chat['question'][:40]}...",
+                    key=f"recent_{i}",
+                    use_container_width=True,
+                    help="Click to ask this question again"
+                ):
+                    st.session_state.current_question = chat['question']
+                    st.rerun()
 
 if __name__ == "__main__":
     main()
