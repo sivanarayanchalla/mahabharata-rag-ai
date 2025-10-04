@@ -1,0 +1,97 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+mahabharata_env/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints
+
+# Data files (don't commit large data)
+data/processed/
+data/raw/*.txt
+!data/raw/README.md
+
+# ChromaDB
+chroma.sqlite3
+chroma.sqlite3-shm
+chroma.sqlite3-wal
+*.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Ollama models (these are large)
+models/
+
+# Streamlit
+.streamlit/
+
+# Temporary files
+*.tmp
+*.temp
+
+# MacOS
+*.DS_Store
+
+# Windows
+Desktop.ini
+
+# Backups
+*.bak
+*.backup
+
+# Large files
+*.zip
+*.tar.gz
+*.7z
+
+# ML model files (if any get downloaded)
+*.pkl
+*.joblib
+*.h5
+*.keras
