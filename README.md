@@ -43,3 +43,18 @@ python run_complete_mahabharata.py
 
 # Run the application
 streamlit run app.py
+
+📁 Project Structure
+
+mahabharata-rag-ai/
+├── app.py                          # Streamlit web interface
+├── run_complete_mahabharata.py     # Complete Mahabharata processor
+├── requirements.txt                # Python dependencies
+├── README.md                       # Project documentation
+├── src/
+│   ├── data_processor.py          # Text processing utilities
+│   ├── multi_file_processor.py    # Multi-file processing
+│   └── rag_system.py              # RAG pipeline implementation
+└── data/
+    ├── raw/                       # Original text files
+    └── processed/                 # Processed chunks
