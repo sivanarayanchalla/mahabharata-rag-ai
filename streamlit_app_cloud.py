@@ -66,14 +66,6 @@ st.markdown("""
         color: #2D3748;
         font-family: 'Georgia', serif;
     }
-    .answer-box h3, .answer-box h4 {
-        color: #2E86AB;
-        margin-top: 1.5em;
-        margin-bottom: 0.8em;
-    }
-    .answer-box p {
-        margin-bottom: 1.2em;
-    }
     
     /* Sample questions styling */
     .sample-question {
@@ -88,6 +80,7 @@ st.markdown("""
         text-align: left;
         font-size: 0.95em;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        width: 100%;
     }
     .sample-question:hover {
         transform: translateY(-2px);
@@ -115,58 +108,6 @@ st.markdown("""
         font-weight: 500;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
-    /* Chat history items */
-    .chat-item {
-        background: #F7FAFC;
-        padding: 10px 14px;
-        border-radius: 10px;
-        margin: 6px 0;
-        border-left: 4px solid #2E86AB;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    .chat-item:hover {
-        background: #EDF2F7;
-        transform: translateX(4px);
-    }
-    
-    /* Loading animation */
-    .loading-spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #2E86AB;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    /* Improved sidebar */
-    .sidebar-content {
-        background: linear-gradient(180deg, #F8F9FA 0%, #FFFFFF 100%);
-        padding: 20px;
-        border-radius: 15px;
-        margin: 10px 0;
-    }
-    
-    /* Button improvements */
-    .stButton button {
-        width: 100%;
-        border-radius: 10px;
-        height: 50px;
-        font-size: 1.1em;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    .stButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -179,9 +120,16 @@ class HighPerformanceMahabharataRAG:
         
         self.embedder = st.session_state.embedder
         
-        # Initialize vector store with persistence
+        # Initialize vector store with error handling for existing collections
         self.client = chromadb.EphemeralClient()
-        self.collection = self.client.create_collection("mahabharata_cloud_v2")
+        try:
+            # Try to get existing collection first
+            self.collection = self.client.get_collection("mahabharata_cloud_v2")
+            st.sidebar.info("✅ Using existing knowledge base")
+        except Exception:
+            # If collection doesn't exist, create it
+            self.collection = self.client.create_collection("mahabharata_cloud_v2")
+            st.sidebar.info("🔄 Creating new knowledge base")
         
         # Load knowledge base with caching
         self.load_knowledge_base()
@@ -191,30 +139,51 @@ class HighPerformanceMahabharataRAG:
         try:
             if 'knowledge_loaded' not in st.session_state:
                 with st.spinner("📚 Loading Mahabharata knowledge..."):
-                    with open('data/processed/complete_mahabharata.json', 'r', encoding='utf-8') as f:
-                        chunks = json.load(f)
+                    # Try complete Mahabharata first, fallback to single file
+                    data_files = [
+                        'data/processed/complete_mahabharata.json',
+                        'data/processed/chunks.json'
+                    ]
                     
-                    # Add to vector store
-                    documents = [chunk['content'] for chunk in chunks[:400]]
-                    embeddings = self.embedder.encode(documents).tolist()
-                    metadatas = [{
-                        'section_id': chunk['section_id'],
-                        'parva': chunk.get('full_parva', chunk['parva']),
-                        'chunk_id': chunk['chunk_id'],
-                        'source_file': chunk.get('source_file', 'unknown')
-                    } for chunk in chunks[:400]]
+                    chunks = []
+                    for data_file in data_files:
+                        if os.path.exists(data_file):
+                            try:
+                                with open(data_file, 'r', encoding='utf-8') as f:
+                                    file_chunks = json.load(f)
+                                chunks.extend(file_chunks)
+                                st.sidebar.success(f"✅ Loaded {len(file_chunks)} chunks from {os.path.basename(data_file)}")
+                                break
+                            except Exception as e:
+                                st.sidebar.warning(f"⚠️ Could not load {data_file}: {e}")
+                                continue
                     
-                    self.collection.add(
-                        embeddings=embeddings,
-                        documents=documents,
-                        metadatas=metadatas,
-                        ids=[chunk['chunk_id'] for chunk in chunks[:400]]
-                    )
+                    if not chunks:
+                        st.error("❌ No Mahabharata data files found!")
+                        return
+                    
+                    # Add to vector store (only if collection is empty)
+                    if self.collection.count() == 0:
+                        documents = [chunk['content'] for chunk in chunks[:400]]
+                        embeddings = self.embedder.encode(documents).tolist()
+                        metadatas = [{
+                            'section_id': chunk.get('section_id', ''),
+                            'parva': chunk.get('full_parva', chunk.get('parva', 'UNKNOWN')),
+                            'chunk_id': chunk.get('chunk_id', ''),
+                            'source_file': chunk.get('source_file', 'unknown')
+                        } for chunk in chunks[:400]]
+                        
+                        self.collection.add(
+                            embeddings=embeddings,
+                            documents=documents,
+                            metadatas=metadatas,
+                            ids=[f"chunk_{i}" for i in range(len(documents))]
+                        )
                     
                     st.session_state.knowledge_loaded = True
-                    st.session_state.loaded_chunks_count = len(documents)
+                    st.session_state.loaded_chunks_count = self.collection.count()
             
-            st.sidebar.success(f"✅ Loaded {st.session_state.loaded_chunks_count} knowledge chunks")
+            st.sidebar.success(f"✅ Knowledge base ready: {st.session_state.loaded_chunks_count} chunks")
             
         except Exception as e:
             st.error(f"❌ Error loading knowledge base: {e}")
@@ -255,97 +224,8 @@ class HighPerformanceMahabharataRAG:
         if not contexts:
             return self.get_no_answer_template(question)
         
-        # Try cloud APIs first
-        try:
-            return self.try_cloud_apis(question, contexts)
-        except:
-            pass
-        
-        # Fallback to enhanced template
+        # Enhanced template answer (primary method)
         return self.enhanced_template_answer(question, contexts)
-    
-    def try_cloud_apis(self, question: str, contexts: List[Dict]) -> str:
-        """Try various free cloud APIs"""
-        prompt = self.build_quality_prompt(question, contexts)
-        
-        # List of free API endpoints to try
-        apis_to_try = [
-            self.try_hugging_face,
-            self.try_deepinfra,
-            self.try_together_ai
-        ]
-        
-        for api_func in apis_to_try:
-            try:
-                result = api_func(prompt)
-                if result and len(result) > 100:
-                    return self.format_answer(result, contexts)
-            except:
-                continue
-        
-        raise Exception("All cloud APIs failed")
-    
-    def try_hugging_face(self, prompt: str) -> str:
-        """Try Hugging Face inference"""
-        try:
-            API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large"
-            headers = {"Authorization": f"Bearer {os.getenv('HF_TOKEN', '')}"}
-            
-            payload = {
-                "inputs": prompt,
-                "parameters": {"max_new_tokens": 350, "temperature": 0.4}
-            }
-            
-            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-            
-            if response.status_code == 200:
-                result = response.json()
-                if isinstance(result, list) and len(result) > 0:
-                    return result[0].get('generated_text', '')
-            
-        except:
-            pass
-        raise Exception("HF failed")
-    
-    def try_deepinfra(self, prompt: str) -> str:
-        """Try DeepInfra free tier"""
-        try:
-            # This would require an API key, but structure is ready
-            pass
-        except:
-            pass
-        raise Exception("DeepInfra not configured")
-    
-    def try_together_ai(self, prompt: str) -> str:
-        """Try Together AI free tier"""
-        try:
-            # This would require an API key, but structure is ready
-            pass
-        except:
-            pass
-        raise Exception("Together AI not configured")
-    
-    def build_quality_prompt(self, question: str, contexts: List[Dict]) -> str:
-        """Build high-quality prompt"""
-        context_str = "\n\n".join([
-            f"**From {ctx['metadata']['parva']}:** {ctx['content']}"
-            for ctx in contexts[:3]  # Use top 3 contexts
-        ])
-        
-        return f"""You are a Mahabharata scholar. Answer the question using ONLY the provided context.
-
-CONTEXT:
-{context_str}
-
-QUESTION: {question}
-
-Provide a comprehensive, well-structured answer with:
-1. Clear main answer first
-2. Supporting details from the context
-3. Specific examples when available
-4. Citation of which parva information comes from
-
-ANSWER:"""
     
     def enhanced_template_answer(self, question: str, contexts: List[Dict]) -> str:
         """High-quality template-based answer"""
@@ -358,7 +238,7 @@ ANSWER:"""
             parva_groups[parva].append(ctx)
         
         # Build answer
-        answer_parts = [f"## 📖 Answer: {question}\n"]
+        answer_parts = [f"## 📖 Answer\n"]
         
         # Main answer from best context
         if contexts:
@@ -366,15 +246,21 @@ ANSWER:"""
             main_info = self.extract_core_info(best_ctx['content'])
             answer_parts.append(f"\n{main_info}\n")
         
-        # Add supporting information
+        # Add supporting information from different parvas
         if len(parva_groups) > 1:
             answer_parts.append("\n### 🔍 Additional Insights:\n")
-            for parva, ctx_list in list(parva_groups.items())[:2]:
+            for parva, ctx_list in list(parva_groups.items())[:3]:
                 if ctx_list:
-                    sample = ctx_list[0]['content'][:120] + "..."
-                    answer_parts.append(f"• **{parva}**: {sample}\n")
+                    sample_text = ctx_list[0]['content']
+                    # Extract the most meaningful sentence
+                    sentences = re.split(r'[.!?]+', sample_text)
+                    meaningful = [s.strip() for s in sentences if len(s.strip()) > 20]
+                    if meaningful:
+                        sample = meaningful[0] + "."
+                        answer_parts.append(f"• **{parva}**: {sample}\n")
         
-        answer_parts.append(f"\n*Information synthesized from {len(contexts)} sources across {len(parva_groups)} parvas.*")
+        # Add source information
+        answer_parts.append(f"\n*Based on analysis of {len(contexts)} sources across {len(parva_groups)} parvas of the Mahabharata.*")
         
         return "\n".join(answer_parts)
     
@@ -382,21 +268,7 @@ ANSWER:"""
         """Extract the most relevant information from text"""
         sentences = re.split(r'[.!?]+', text)
         meaningful_sentences = [s.strip() for s in sentences if len(s.strip()) > 30]
-        return " ".join(meaningful_sentences[:2]) + "."
-    
-    def format_answer(self, answer: str, contexts: List[Dict]) -> str:
-        """Format the answer for better readability"""
-        # Clean up the answer
-        answer = re.sub(r'.*ANSWER:\s*', '', answer, flags=re.IGNORECASE)
-        answer = answer.strip()
-        
-        # Add parva citations
-        if contexts:
-            parvas = set(ctx['metadata']['parva'] for ctx in contexts[:3])
-            parva_str = ", ".join(parvas)
-            answer += f"\n\n*Based on information from {parva_str}*"
-        
-        return answer
+        return " ".join(meaningful_sentences[:3]) + "."
     
     def get_no_answer_template(self, question: str) -> str:
         """Template for when no good context is found"""
@@ -425,14 +297,11 @@ I couldn't find specific information about **"{question}"** in the available Mah
         contexts = self.retrieve_context(question, k=4)
         retrieval_time = time.time() - start_time
         
-        # Generate answer with timeout
+        # Generate answer
         gen_start = time.time()
-        try:
-            answer = self.generate_answer(question, contexts)
-        except Exception as e:
-            answer = self.enhanced_template_answer(question, contexts)
-        
+        answer = self.generate_answer(question, contexts)
         generation_time = time.time() - gen_start
+        
         total_time = time.time() - start_time
         
         # Calculate confidence
@@ -444,7 +313,7 @@ I couldn't find specific information about **"{question}"** in the available Mah
             'confidence': confidence,
             'response_time': total_time,
             'sources_count': len(contexts),
-            'parvas_used': list(set(ctx['metadata']['parva'] for ctx in contexts))
+            'parvas_used': list(set(ctx['metadata']['parva'] for ctx in contexts)) if contexts else []
         }
 
 def main():
@@ -460,6 +329,9 @@ def main():
     
     if 'current_question' not in st.session_state:
         st.session_state.current_question = ""
+    
+    if 'answer_trigger' not in st.session_state:
+        st.session_state.answer_trigger = False
     
     # Sidebar with improved layout
     with st.sidebar:
@@ -479,23 +351,27 @@ def main():
             "Explain Karna's tragic destiny and choices"
         ]
         
-        for i, question in enumerate(sample_questions):
-            if st.button(
-                f"• {question}",
-                key=f"sample_{i}",
-                use_container_width=True,
-                help="Click to load this question"
-            ):
-                st.session_state.current_question = question
-                # Use JavaScript to trigger immediate execution (conceptual)
+        # Use form to handle sample question clicks properly
+        with st.form("sample_questions_form"):
+            selected_question = st.selectbox(
+                "Choose a sample question:",
+                [""] + sample_questions,
+                format_func=lambda x: "Select a question..." if x == "" else x
+            )
+            
+            sample_submitted = st.form_submit_button("Ask This Question")
+            
+            if sample_submitted and selected_question:
+                st.session_state.current_question = selected_question
+                st.session_state.answer_trigger = True
                 st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Performance stats
-        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-        st.header("📊 Performance")
         if st.session_state.chat_history:
+            st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+            st.header("📊 Performance")
             total_questions = len(st.session_state.chat_history)
             avg_time = sum(chat['response_time'] for chat in st.session_state.chat_history) / total_questions
             avg_confidence = sum(chat['confidence'] for chat in st.session_state.chat_history) / total_questions
@@ -506,70 +382,76 @@ def main():
                 st.metric("Avg Time", f"{avg_time:.1f}s")
             with col2:
                 st.metric("Avg Confidence", f"{avg_confidence:.3f}")
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     
     # Main content area
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        # Question input with instant loading
-        question = st.text_input(
-            " ",
-            placeholder="Ask anything about Mahabharata characters, philosophy, or events...",
-            value=st.session_state.current_question,
-            key="main_question_input"
-        )
-        
-        # Update current question when input changes
-        if question != st.session_state.current_question:
-            st.session_state.current_question = question
-        
-        if st.button("🚀 Get Instant Answer", type="primary", use_container_width=True):
-            if question and question.strip():
-                # Show loading state
-                with st.spinner("🔍 Searching across all parvas..."):
-                    result = st.session_state.rag.query(question.strip())
-                
-                # Store in history
-                st.session_state.chat_history.append({
-                    'question': question,
-                    'answer': result['answer'],
-                    'timestamp': time.time(),
-                    'confidence': result['confidence'],
-                    'sources_count': result['sources_count'],
-                    'response_time': result['response_time']
-                })
-                
-                # Display results
-                st.markdown("## 📜 Comprehensive Answer")
-                st.markdown(f'<div class="answer-box">{result["answer"]}</div>', unsafe_allow_html=True)
-                
-                # Performance metrics
-                st.markdown("### 📊 Answer Metrics")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("⏱️ Response Time", f"{result['response_time']:.1f}s")
-                with col2:
-                    confidence_color = "🟢" if result['confidence'] > 0.6 else "🟡" if result['confidence'] > 0.3 else "🔴"
-                    st.metric("📊 Confidence", f"{confidence_color} {result['confidence']:.3f}")
-                with col3:
-                    st.metric("📚 Sources", result['sources_count'])
-                with col4:
-                    st.metric("📖 Parvas", len(result.get('parvas_used', [])))
-                
-                # Source information
-                if result['sources_count'] > 0:
-                    st.markdown("### 📖 Sources Used")
-                    parva_counts = {}
-                    for source in result['sources']:
-                        parva = source['metadata']['parva']
-                        parva_counts[parva] = parva_counts.get(parva, 0) + 1
-                    
-                    for parva, count in parva_counts.items():
-                        st.markdown(f'<span class="source-badge">{parva}: {count} source{"s" if count > 1 else ""}</span>', unsafe_allow_html=True)
+        # Main question form
+        with st.form("main_question_form"):
+            question = st.text_input(
+                "Your Question:",
+                placeholder="Ask anything about Mahabharata characters, philosophy, or events...",
+                value=st.session_state.current_question,
+                key="main_question_input"
+            )
             
-            else:
-                st.warning("Please enter a question about the Mahabharata")
+            submitted = st.form_submit_button("🚀 Get Instant Answer", use_container_width=True)
+            
+            if submitted and question.strip():
+                st.session_state.current_question = question.strip()
+                st.session_state.answer_trigger = True
+                st.rerun()
+        
+        # Handle answer generation when triggered
+        if st.session_state.answer_trigger and st.session_state.current_question:
+            question = st.session_state.current_question
+            
+            # Show loading state
+            with st.spinner("🔍 Searching across all parvas..."):
+                result = st.session_state.rag.query(question)
+            
+            # Store in history
+            st.session_state.chat_history.append({
+                'question': question,
+                'answer': result['answer'],
+                'timestamp': time.time(),
+                'confidence': result['confidence'],
+                'sources_count': result['sources_count'],
+                'response_time': result['response_time']
+            })
+            
+            # Reset trigger
+            st.session_state.answer_trigger = False
+            
+            # Display results
+            st.markdown("## 📜 Comprehensive Answer")
+            st.markdown(f'<div class="answer-box">{result["answer"]}</div>', unsafe_allow_html=True)
+            
+            # Performance metrics
+            st.markdown("### 📊 Answer Metrics")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("⏱️ Response Time", f"{result['response_time']:.1f}s")
+            with col2:
+                confidence_color = "🟢" if result['confidence'] > 0.6 else "🟡" if result['confidence'] > 0.3 else "🔴"
+                st.metric("📊 Confidence", f"{confidence_color} {result['confidence']:.3f}")
+            with col3:
+                st.metric("📚 Sources", result['sources_count'])
+            with col4:
+                st.metric("📖 Parvas", len(result.get('parvas_used', [])))
+            
+            # Source information
+            if result['sources_count'] > 0:
+                st.markdown("### 📖 Sources Used")
+                parva_counts = {}
+                for source in result['sources']:
+                    parva = source['metadata']['parva']
+                    parva_counts[parva] = parva_counts.get(parva, 0) + 1
+                
+                for parva, count in parva_counts.items():
+                    st.markdown(f'<span class="source-badge">{parva}: {count} source{"s" if count > 1 else ""}</span>', unsafe_allow_html=True)
     
     with col2:
         st.markdown("### 🌟 Quick Facts")
@@ -586,17 +468,23 @@ def main():
         for fact in facts:
             st.info(fact)
         
-        # Recent questions with instant loading
+        # Recent questions
         if st.session_state.chat_history:
             st.markdown("### 💬 Recent Questions")
-            for i, chat in enumerate(reversed(st.session_state.chat_history[-5:])):
+            recent_chats = list(reversed(st.session_state.chat_history[-5:]))
+            
+            for i, chat in enumerate(recent_chats):
+                # Shorten question for display
+                display_question = chat['question'][:50] + "..." if len(chat['question']) > 50 else chat['question']
+                
                 if st.button(
-                    f"Q: {chat['question'][:40]}...",
+                    f"Q: {display_question}",
                     key=f"recent_{i}",
                     use_container_width=True,
                     help="Click to ask this question again"
                 ):
                     st.session_state.current_question = chat['question']
+                    st.session_state.answer_trigger = True
                     st.rerun()
 
 if __name__ == "__main__":
