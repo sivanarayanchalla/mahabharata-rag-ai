@@ -65,6 +65,13 @@ st.markdown("""
         border-radius: 15px;
         margin: 10px 0;
     }
+    .character-highlight {
+        background: linear-gradient(120deg, #FFEAA7 0%, #FFEAA7 100%);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #FDCB6E;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -90,63 +97,73 @@ class RobustMahabharataRAG:
                 self.collection = self.client.create_collection("mahabharata_complete")
                 st.sidebar.info("🔄 Creating new knowledge base")
             
-            # Load knowledge base
-            self.load_knowledge_base()
+            # Load ALL available knowledge base files
+            self.load_complete_knowledge_base()
             
         except Exception as e:
             st.error(f"❌ Failed to initialize RAG system: {e}")
             raise
     
-    def load_knowledge_base(self):
-        """Load all available Mahabharata data with comprehensive fallbacks"""
+    def load_complete_knowledge_base(self):
+        """Load ALL available Mahabharata chunk files"""
         try:
             # Check if knowledge is already loaded
-            if self.collection.count() > 0:
+            if self.collection.count() > 100:  # Reasonable threshold
                 st.session_state.knowledge_loaded = True
                 st.session_state.loaded_chunks_count = self.collection.count()
                 st.sidebar.success(f"✅ Knowledge base ready: {self.collection.count()} chunks")
                 return
             
-            with st.spinner("📚 Loading Mahabharata knowledge base..."):
+            with st.spinner("📚 Loading COMPLETE Mahabharata knowledge base..."):
                 all_chunks = []
+                loaded_files = []
                 
-                # Try to load complete processed data first
-                complete_data_path = "data/processed/complete_mahabharata.json"
-                if os.path.exists(complete_data_path):
-                    try:
-                        with open(complete_data_path, 'r', encoding='utf-8') as f:
-                            complete_chunks = json.load(f)
-                        all_chunks.extend(complete_chunks)
-                        st.sidebar.success(f"✅ Loaded {len(complete_chunks)} chunks from complete Mahabharata")
-                    except Exception as e:
-                        st.sidebar.warning(f"⚠️ Could not load complete data: {e}")
-                
-                # If no complete data, try individual files
-                if not all_chunks:
-                    individual_files = glob.glob("data/processed/*_chunks.json")
-                    for file_path in individual_files:
+                # Load ALL individual chunk files (maha01_chunks.json to maha18_chunks.json)
+                for i in range(1, 19):
+                    file_name = f"maha{i:02d}_chunks.json"
+                    file_path = f"data/processed/{file_name}"
+                    
+                    if os.path.exists(file_path):
                         try:
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 chunks = json.load(f)
                             all_chunks.extend(chunks)
-                            st.sidebar.info(f"📖 Loaded {len(chunks)} from {os.path.basename(file_path)}")
+                            loaded_files.append(file_name)
+                            st.sidebar.info(f"📖 Loaded {len(chunks)} from {file_name}")
                         except Exception as e:
-                            st.sidebar.warning(f"⚠️ Could not load {file_path}: {e}")
+                            st.sidebar.warning(f"⚠️ Could not load {file_name}: {e}")
+                    else:
+                        st.sidebar.warning(f"📭 File not found: {file_name}")
                 
-                # Last resort: process raw files on the fly
+                # Also try to load complete combined file if it exists
+                complete_data_path = "data/processed/complete_mahabharata.json"
+                if os.path.exists(complete_data_path) and len(all_chunks) < 100:
+                    try:
+                        with open(complete_data_path, 'r', encoding='utf-8') as f:
+                            complete_chunks = json.load(f)
+                        all_chunks.extend(complete_chunks)
+                        loaded_files.append("complete_mahabharata.json")
+                        st.sidebar.success(f"✅ Added {len(complete_chunks)} from complete file")
+                    except Exception as e:
+                        st.sidebar.warning(f"⚠️ Could not load complete data: {e}")
+                
+                # If still no chunks, process raw files
                 if not all_chunks:
                     all_chunks = self.process_raw_files()
+                    if all_chunks:
+                        loaded_files.append("raw_files")
                 
                 if not all_chunks:
                     st.error("❌ No Mahabharata data found! Please check your data files.")
+                    st.info("💡 Make sure you have processed chunk files in data/processed/ folder")
                     return
                 
-                # Add chunks to vector store
-                self.add_chunks_to_store(all_chunks)
+                # Add ALL chunks to vector store (no limiting for now)
+                self.add_all_chunks_to_store(all_chunks)
                 
                 st.session_state.knowledge_loaded = True
                 st.session_state.loaded_chunks_count = len(all_chunks)
-                st.sidebar.success(f"✅ Knowledge base loaded: {len(all_chunks)} chunks")
+                st.sidebar.success(f"✅ COMPLETE knowledge base loaded: {len(all_chunks)} chunks from {len(loaded_files)} files")
                 
         except Exception as e:
             st.error(f"❌ Error loading knowledge base: {e}")
@@ -154,15 +171,16 @@ class RobustMahabharataRAG:
     def process_raw_files(self):
         """Process raw Mahabharata files as last resort"""
         try:
-            st.sidebar.warning("🔄 Processing raw files...")
+            st.sidebar.warning("🔄 Processing raw files as fallback...")
             
             raw_files = glob.glob("data/raw/maha*.txt")
             if not raw_files:
+                st.sidebar.error("❌ No raw files found in data/raw/")
                 return []
             
             all_chunks = []
             
-            for file_path in raw_files[:3]:  # Process first 3 files for speed
+            for file_path in raw_files[:5]:  # Process first 5 files for speed
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
@@ -171,13 +189,13 @@ class RobustMahabharataRAG:
                     paragraphs = re.split(r'\n\s*\n', content)
                     chunks = []
                     
-                    for i, para in enumerate(paragraphs[:50]):  # Limit chunks
-                        if len(para.strip()) > 100:
+                    for i, para in enumerate(paragraphs[:100]):  # Increased limit
+                        if len(para.strip()) > 50:  # Lower threshold
                             chunks.append({
                                 'content': para.strip(),
                                 'chunk_id': f"{os.path.basename(file_path)}_{i}",
                                 'section_id': 'AUTO',
-                                'parva': 'AUTO_PROCESSED',
+                                'parva': f"AUTO_{os.path.basename(file_path)}",
                                 'word_count': len(para.split())
                             })
                     
@@ -193,13 +211,11 @@ class RobustMahabharataRAG:
             st.error(f"❌ Error processing raw files: {e}")
             return []
     
-    def add_chunks_to_store(self, chunks: List[Dict]):
-        """Add chunks to vector store with proper batching"""
+    def add_all_chunks_to_store(self, chunks: List[Dict]):
+        """Add ALL chunks to vector store without limiting"""
         try:
-            # Use more chunks for better coverage
-            chunks_to_add = chunks[:600]  # Increased from 400 to 600
-            
-            documents = [chunk['content'] for chunk in chunks_to_add]
+            # Use ALL chunks for maximum coverage
+            documents = [chunk['content'] for chunk in chunks]
             embeddings = self.embedder.encode(documents).tolist()
             metadatas = [{
                 'section_id': chunk.get('section_id', ''),
@@ -207,30 +223,48 @@ class RobustMahabharataRAG:
                 'chunk_id': chunk.get('chunk_id', ''),
                 'source_file': chunk.get('source_file', 'unknown'),
                 'word_count': chunk.get('word_count', 0)
-            } for chunk in chunks_to_add]
+            } for chunk in chunks]
             
-            ids = [chunk.get('global_chunk_id', f"chunk_{i}") for i, chunk in enumerate(chunks_to_add)]
+            # Create unique IDs
+            ids = [f"chunk_{i}" for i in range(len(chunks))]
             
-            self.collection.add(
-                embeddings=embeddings,
-                documents=documents,
-                metadatas=metadatas,
-                ids=ids
-            )
+            # Clear existing collection and add all chunks
+            try:
+                self.client.delete_collection("mahabharata_complete")
+            except:
+                pass
             
-            st.sidebar.success(f"📚 Added {len(documents)} chunks to knowledge base")
+            self.collection = self.client.create_collection("mahabharata_complete")
+            
+            # Add in batches if too many chunks
+            batch_size = 500
+            total_batches = (len(documents) - 1) // batch_size + 1
+            
+            for i in range(0, len(documents), batch_size):
+                batch_end = min(i + batch_size, len(documents))
+                self.collection.add(
+                    embeddings=embeddings[i:batch_end],
+                    documents=documents[i:batch_end],
+                    metadatas=metadatas[i:batch_end],
+                    ids=ids[i:batch_end]
+                )
+                progress = (i + batch_size) / len(documents)
+                st.sidebar.info(f"📦 Added batch {(i//batch_size) + 1}/{total_batches} ({progress:.1%})")
+            
+            st.sidebar.success(f"📚 Added {len(documents)} TOTAL chunks to knowledge base")
             
         except Exception as e:
             st.error(f"❌ Error adding chunks to store: {e}")
     
-    def retrieve_context(self, query: str, k: int = 6) -> List[Dict]:  # Increased k from 5 to 6
-        """Improved context retrieval with better matching"""
+    def retrieve_context(self, query: str, k: int = 8) -> List[Dict]:
+        """Enhanced context retrieval with better matching"""
         try:
             query_embedding = self.embedder.encode(query).tolist()
             
+            # Get more results initially, then filter
             results = self.collection.query(
                 query_embeddings=[query_embedding],
-                n_results=k,
+                n_results=min(k * 2, 20),  # Get more, filter later
                 include=['documents', 'metadatas', 'distances']
             )
             
@@ -241,40 +275,71 @@ class RobustMahabharataRAG:
                 results['distances'][0]
             ):
                 similarity_score = max(0.0, 1 - distance)
-                # Lower threshold to catch more relevant results
-                if similarity_score > 0.1:  # Reduced from 0.15 to 0.1
+                # Much lower threshold to catch more relevant results
+                if similarity_score > 0.05:  # Reduced threshold significantly
                     contexts.append({
                         'content': doc,
                         'metadata': metadata,
                         'similarity_score': similarity_score
                     })
             
-            return contexts
+            # Sort by similarity and take top k
+            contexts.sort(key=lambda x: x['similarity_score'], reverse=True)
+            return contexts[:k]
             
         except Exception as e:
             st.error(f"🔍 Retrieval error: {e}")
             return []
     
     def generate_enhanced_answer(self, question: str, contexts: List[Dict]) -> str:
-        """Generate comprehensive answers with better context usage"""
+        """Generate comprehensive answers with character-specific enhancements"""
         if not contexts:
-            return self.get_enhanced_no_answer_template(question)
+            return self.get_character_specific_fallback(question)
         
         # Build detailed answer using all contexts
         answer_parts = []
         
-        # Main answer section
-        answer_parts.append("## 📖 Comprehensive Answer\n")
+        # Character-specific enhancements
+        if self.is_character_question(question):
+            answer_parts.append(self.generate_character_profile(question, contexts))
+        else:
+            answer_parts.append(self.generate_general_answer(question, contexts))
         
-        # Extract and combine information from all contexts
-        combined_info = self.combine_context_information(contexts)
-        answer_parts.append(combined_info)
+        return "\n".join(answer_parts)
+    
+    def is_character_question(self, question: str) -> bool:
+        """Check if question is about a character"""
+        character_keywords = [
+            'draupadi', 'krishna', 'arjuna', 'yudhishthira', 'bhima', 'nakula', 'sahadeva',
+            'duryodhana', 'karna', 'bhishma', 'drona', 'vidura', 'kunti', 'gandhari',
+            'shakuni', 'dushasana', 'abhima', 'subhadra', 'ulupi', 'chitrangada'
+        ]
+        question_lower = question.lower()
+        return any(char in question_lower for char in character_keywords)
+    
+    def generate_character_profile(self, question: str, contexts: List[Dict]) -> str:
+        """Generate character-specific profile"""
+        character_name = self.extract_character_name(question)
         
-        # Add specific examples if available
-        specific_examples = self.extract_specific_examples(contexts, question)
-        if specific_examples:
-            answer_parts.append("\n### 🔍 Specific Details:\n")
-            answer_parts.append(specific_examples)
+        answer_parts = []
+        answer_parts.append(f"## 👑 Character Profile: {character_name.title()}")
+        
+        # Extract character information
+        character_info = self.extract_character_information(character_name, contexts)
+        
+        if character_info:
+            answer_parts.append(f"\n{character_info}")
+        else:
+            answer_parts.append(f"\n**Based on the available text, here's what I found about {character_name.title()}:**")
+            
+            # Try to extract any relevant information
+            relevant_sentences = self.extract_relevant_sentences(character_name, contexts)
+            if relevant_sentences:
+                answer_parts.append("\n### 📖 Key Information:")
+                for sentence in relevant_sentences[:5]:  # Limit to 5 sentences
+                    answer_parts.append(f"• {sentence}")
+            else:
+                answer_parts.append(f"\n*Specific detailed information about {character_name.title()} was not found in the currently loaded text sections.*")
         
         # Add source information
         source_info = self.get_source_information(contexts)
@@ -282,73 +347,166 @@ class RobustMahabharataRAG:
         
         return "\n".join(answer_parts)
     
-    def combine_context_information(self, contexts: List[Dict]) -> str:
-        """Combine information from multiple contexts"""
-        # Sort by similarity score
-        sorted_contexts = sorted(contexts, key=lambda x: x['similarity_score'], reverse=True)
-        
-        combined_texts = []
-        used_content = set()
-        
-        for ctx in sorted_contexts:
-            content = ctx['content']
-            # Avoid duplicate content
-            content_hash = hash(content[:100])
-            if content_hash not in used_content:
-                combined_texts.append(content)
-                used_content.add(content_hash)
-        
-        # Take top 3 most relevant contexts
-        top_contexts = combined_texts[:3]
-        
-        # Simple combination - in production, you'd use an LLM here
-        if top_contexts:
-            main_info = self.extract_core_info(top_contexts[0])
-            supporting_info = " ".join([self.extract_key_points(ctx) for ctx in top_contexts[1:]])
-            
-            return f"{main_info}\n\n{supporting_info}"
-        else:
-            return "Based on the available text, here's what I found..."
-    
-    def extract_specific_examples(self, contexts: List[Dict], question: str) -> str:
-        """Extract specific examples relevant to the question"""
-        examples = []
+    def extract_character_name(self, question: str) -> str:
+        """Extract character name from question"""
         question_lower = question.lower()
         
-        for ctx in contexts[:2]:  # Use top 2 contexts for examples
-            content = ctx['content']
-            
-            # Look for specific patterns based on question type
-            if any(keyword in question_lower for keyword in ['who is', 'who are', 'describe']):
-                # Extract character descriptions
-                sentences = re.split(r'[.!?]+', content)
-                descriptive_sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
-                if descriptive_sentences:
-                    examples.append(f"• {descriptive_sentences[0]}.")
-            
-            elif any(keyword in question_lower for keyword in ['what is', 'explain', 'meaning']):
-                # Extract explanatory sentences
-                sentences = re.split(r'[.!?]+', content)
-                explanatory = [s.strip() for s in sentences if any(word in s.lower() for word in ['is', 'means', 'defined', 'called'])]
-                if explanatory:
-                    examples.append(f"• {explanatory[0]}.")
+        character_mapping = {
+            'draupadi': 'Draupadi',
+            'krishna': 'Krishna',
+            'arjuna': 'Arjuna', 
+            'yudhishthira': 'Yudhishthira',
+            'bhima': 'Bhima',
+            'nakula': 'Nakula',
+            'sahadeva': 'Sahadeva',
+            'duryodhana': 'Duryodhana',
+            'karna': 'Karna',
+            'bhishma': 'Bhishma',
+            'drona': 'Drona',
+            'vidura': 'Vidura',
+            'kunti': 'Kunti',
+            'gandhari': 'Gandhari',
+            'shakuni': 'Shakuni',
+            'dushasana': 'Dushasana'
+        }
         
-        return "\n".join(examples) if examples else ""
+        for key, name in character_mapping.items():
+            if key in question_lower:
+                return name
+        
+        # Default: extract first word after "about"
+        if 'about' in question_lower:
+            parts = question_lower.split('about')
+            if len(parts) > 1:
+                return parts[1].strip().title()
+        
+        return "this character"
     
-    def extract_core_info(self, text: str) -> str:
-        """Extract the most relevant information from text"""
-        sentences = re.split(r'[.!?]+', text)
-        meaningful_sentences = [s.strip() for s in sentences if len(s.strip()) > 25]
-        return " ".join(meaningful_sentences[:2]) + "."
+    def extract_character_information(self, character_name: str, contexts: List[Dict]) -> str:
+        """Extract comprehensive character information"""
+        character_sentences = []
+        
+        for ctx in contexts:
+            content = ctx['content']
+            # Look for sentences mentioning the character
+            sentences = re.split(r'[.!?]+', content)
+            
+            for sentence in sentences:
+                sentence_lower = sentence.lower()
+                if character_name.lower() in sentence_lower and len(sentence.strip()) > 15:
+                    # Clean up the sentence
+                    clean_sentence = sentence.strip()
+                    if clean_sentence not in character_sentences:
+                        character_sentences.append(clean_sentence)
+        
+        if character_sentences:
+            # Group related information
+            return " ".join(character_sentences[:10])  # Increased limit to 10 sentences
+        else:
+            return ""
     
-    def extract_key_points(self, text: str) -> str:
-        """Extract key points from text"""
-        sentences = re.split(r'[.!?]+', text)
-        key_sentences = [s.strip() for s in sentences if len(s.strip()) > 15]
-        return " ".join(key_sentences[:1]) + "."
+    def extract_relevant_sentences(self, character_name: str, contexts: List[Dict]) -> List[str]:
+        """Extract any sentences that might be relevant to the character"""
+        relevant_sentences = []
+        character_lower = character_name.lower()
+        
+        for ctx in contexts:
+            content = ctx['content']
+            sentences = re.split(r'[.!?]+', content)
+            
+            for sentence in sentences:
+                sentence_clean = sentence.strip()
+                if (len(sentence_clean) > 10 and 
+                    any(keyword in sentence_clean.lower() for keyword in 
+                        ['wife', 'husband', 'son', 'daughter', 'brother', 'sister', 
+                         'king', 'queen', 'warrior', 'prince', 'princess', 'married',
+                         'father', 'mother', 'family', 'role', 'character'])):
+                    relevant_sentences.append(sentence_clean)
+        
+        return relevant_sentences[:8]  # Limit to 8 sentences
+    
+    def generate_general_answer(self, question: str, contexts: List[Dict]) -> str:
+        """Generate answer for non-character questions"""
+        answer_parts = []
+        answer_parts.append("## 📖 Comprehensive Answer")
+        
+        # Use the most relevant context as main answer
+        if contexts:
+            main_context = contexts[0]
+            main_content = main_context['content']
+            
+            # Extract key sentences
+            sentences = re.split(r'[.!?]+', main_content)
+            key_sentences = [s.strip() for s in sentences if len(s.strip()) > 15]
+            
+            if key_sentences:
+                answer_parts.append("\n" + " ".join(key_sentences[:4]) + ".")  # Increased to 4 sentences
+            
+            # Add supporting information from other contexts
+            if len(contexts) > 1:
+                answer_parts.append("\n### 🔍 Additional Context:")
+                supporting_info = []
+                for ctx in contexts[1:5]:  # Use next 4 contexts
+                    sentences = re.split(r'[.!?]+', ctx['content'])
+                    meaningful = [s.strip() for s in sentences if len(s.strip()) > 10]  # Lower threshold
+                    if meaningful:
+                        supporting_info.append(meaningful[0] + ".")
+                
+                if supporting_info:
+                    answer_parts.extend(supporting_info)
+        
+        # Add source information
+        source_info = self.get_source_information(contexts)
+        answer_parts.append(f"\n{source_info}")
+        
+        return "\n".join(answer_parts)
+    
+    def get_character_specific_fallback(self, question: str) -> str:
+        """Character-specific fallback when no information is found"""
+        character_name = self.extract_character_name(question)
+        
+        fallback = f"""## 👑 Character: {character_name.title()}
+
+**🔍 Information Limited in Current Search**
+
+I searched through the available Mahabharata text but found limited specific information about **{character_name.title()}** in the currently loaded sections.
+
+**💡 Character-Specific Suggestions:**
+
+• **Try alternative names or titles**: {self.get_character_alternatives(character_name)}
+• **Ask about specific relationships**: "What is {character_name.title()}'s relationship with [other character]?"
+• **Inquire about key events**: "What role did {character_name.title()} play in [specific event]?"
+• **Request general background**: "Tell me about {character_name.title()}'s family and background"
+
+**📚 Common Mahabharata Characters with Good Coverage:**
+- Krishna, Arjuna, Yudhishthira, Bhima
+- Draupadi, Kunti, Gandhari  
+- Duryodhana, Karna, Bhishma
+- Drona, Vidura, Shakuni
+
+*Note: Character information is distributed across different parvas. The system may not have loaded all relevant sections yet.*"""
+
+        return fallback
+    
+    def get_character_alternatives(self, character_name: str) -> str:
+        """Get alternative names for characters"""
+        alternatives = {
+            'draupadi': 'Panchali, Yajnaseni, Krishnaa',
+            'krishna': 'Govinda, Madhava, Vasudeva, Gopala',
+            'arjuna': 'Partha, Dhananjaya, Gudakesha, Kirīṭī',
+            'yudhishthira': 'Dharmaraja, Ajatashatru',
+            'bhima': 'Vrikodara, Bhimasena',
+            'karna': 'Radheya, Vasusena, Angaraja',
+            'bhishma': 'Ganga putra, Devavrata',
+            'drona': 'Dronacharya, Guru Drona'
+        }
+        return alternatives.get(character_name.lower(), 'various epithets and titles')
     
     def get_source_information(self, contexts: List[Dict]) -> str:
         """Get information about sources used"""
+        if not contexts:
+            return "*No specific sources were found for this query.*"
+        
         parva_counts = {}
         for ctx in contexts:
             parva = ctx['metadata']['parva']
@@ -356,42 +514,19 @@ class RobustMahabharataRAG:
         
         parva_list = [f"{parva} ({count})" for parva, count in parva_counts.items()]
         return f"*Information synthesized from {len(contexts)} sources across {len(parva_counts)} parvas: {', '.join(parva_list)}*"
-    
-    def get_enhanced_no_answer_template(self, question: str) -> str:
-        """Enhanced template for when no good context is found"""
-        return f"""## 🔍 Information Not Found
-
-I searched through the available Mahabharata text but couldn't find specific information about **"{question}"**.
-
-**🤔 This could be because:**
-- The information might be in parts of the text not currently loaded
-- Your question might need rephrasing for better matching
-- The concept might be known by a different name in the text
-
-**💡 Try these approaches:**
-- Rephrase your question (e.g., "Tell me about Krishna's role" instead of "Who is Krishna")
-- Ask about specific events or relationships
-- Use the character's full name or common epithets
-- Break complex questions into simpler ones
-
-**🎯 Sample questions that work well:**
-- "Describe Krishna's role in the Kurukshetra war"
-- "What is the relationship between Krishna and Arjuna?"
-- "Tell me about the Bhagavad Gita teachings"
-- "Who are the main Pandava brothers?"""
 
     def query(self, question: str) -> Dict:
         """Comprehensive query method with enhanced retrieval"""
         start_time = time.time()
         
         # Enhanced context retrieval with query expansion
-        contexts = self.retrieve_context(question, k=6)
+        contexts = self.retrieve_context(question, k=8)
         
         # If no contexts found, try with expanded query
         if not contexts:
             expanded_queries = self.expand_query(question)
             for expanded_query in expanded_queries:
-                contexts = self.retrieve_context(expanded_query, k=4)
+                contexts = self.retrieve_context(expanded_query, k=6)
                 if contexts:
                     break
         
@@ -421,34 +556,28 @@ I searched through the available Mahabharata text but couldn't find specific inf
         question_lower = question.lower()
         expansions = [question]
         
-        # Add common variations
-        if 'krishna' in question_lower:
-            expansions.extend([
-                f"{question} in Mahabharata",
-                "Krishna role Kurukshetra war",
-                "Krishna and Arjuna relationship",
-                "Lord Krishna Mahabharata",
-                "Krishna Bhagavad Gita"
-            ])
-        elif 'arjuna' in question_lower:
-            expansions.extend([
-                f"{question} Pandava",
-                "Arjuna archery skills",
-                "Arjuna and Krishna",
-                "Pandava brothers"
-            ])
-        elif 'pandava' in question_lower:
-            expansions.extend([
-                "five Pandava brothers",
-                "Yudhishthira Bhima Arjuna Nakula Sahadeva",
-                "Pandava family"
-            ])
+        # Add character-specific expansions
+        character_expansions = {
+            'draupadi': ['Draupadi Panchali', 'Yajnaseni', 'Krishnaa', 'Pandava wife', 'Draupadi character', 'Draupadi story'],
+            'arjuna': ['Arjuna Partha', 'Dhananjaya', 'Pandava archer', 'Arjuna skills', 'Arjuna and Krishna'],
+            'krishna': ['Krishna Govinda', 'Vasudeva', 'Lord Krishna', 'Krishna role', 'Krishna Bhagavad Gita'],
+            'yudhishthira': ['Yudhishthira Dharmaraja', 'eldest Pandava', 'Yudhishthira justice', 'Yudhishthira Dharma'],
+            'bhima': ['Bhima Vrikodara', 'strong Pandava', 'Bhima strength', 'Bhimasena'],
+            'karna': ['Karna Radheya', 'suryaputra', 'Karna generosity', 'Karna story'],
+            'bhishma': ['Bhishma pitamaha', 'Ganga putra', 'Bhishma vow', 'Devavrata'],
+            'drona': ['Dronacharya', 'Guru Drona', 'Drona teacher', 'Dronacharya story']
+        }
+        
+        for char, variants in character_expansions.items():
+            if char in question_lower:
+                expansions.extend(variants)
+                break
         
         return expansions
 
 def main():
     st.markdown('<h1 class="main-header">🕉️ Mahabharata AI Scholar</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Complete Edition • Enhanced Retrieval • Better Answers</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Complete Edition • All 18 Parvas • Enhanced Character Answers</p>', unsafe_allow_html=True)
     
     # Initialize session state
     if 'rag' not in st.session_state:
@@ -456,7 +585,7 @@ def main():
             st.session_state.rag = RobustMahabharataRAG()
         except Exception as e:
             st.error(f"❌ Failed to initialize: {e}")
-            st.info("💡 Please check that Ollama is running and data files are available")
+            st.info("💡 Please check that your data files are available in data/processed/ folder")
             return
     
     if 'chat_history' not in st.session_state:
@@ -474,6 +603,10 @@ def main():
         st.header("🚀 Quick Questions")
         
         sample_questions = [
+            "Who is Draupadi and what is her story?",
+            "Tell me about Draupadi's marriage", 
+            "What is Draupadi's role in the Mahabharata?",
+            "Describe Draupadi's relationship with the Pandavas",
             "Who is Krishna and what is his role?",
             "Tell me about the Pandava brothers",
             "What is the Bhagavad Gita about?",
@@ -481,7 +614,6 @@ def main():
             "Who is Arjuna and what are his skills?",
             "Explain the concept of Dharma",
             "What is Yudhishthira known for?",
-            "Tell me about Draupadi's character",
             "Who are the main Kauravas?",
             "What is Bhishma's role in the story?"
         ]
@@ -517,6 +649,15 @@ def main():
             with col2:
                 st.metric("Avg Confidence", f"{avg_confidence:.3f}")
             st.markdown('</div>', unsafe_allow_html=True)
+        
+        # System Info
+        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+        st.header("⚙️ System Info")
+        if hasattr(st.session_state, 'loaded_chunks_count'):
+            st.metric("Knowledge Chunks", st.session_state.loaded_chunks_count)
+        st.metric("Vector DB", "ChromaDB")
+        st.metric("Embeddings", "Sentence Transformers")
+        st.markdown('</div>', unsafe_allow_html=True)
     
     # Main content area
     col1, col2 = st.columns([3, 1])
@@ -608,7 +749,7 @@ def main():
             recent_chats = list(reversed(st.session_state.chat_history[-5:]))
             
             for i, chat in enumerate(recent_chats):
-                display_question = chat['question'][:45] + "..." if len(chat['question']) > 45 else chat['question']
+                display_question = chat['question'][:40] + "..." if len(chat['question']) > 40 else chat['question']
                 
                 if st.button(
                     f"Q: {display_question}",
@@ -619,6 +760,19 @@ def main():
                     st.session_state.current_question = chat['question']
                     st.session_state.answer_trigger = True
                     st.rerun()
+        
+        # Character Highlights
+        st.markdown("### 👑 Popular Characters")
+        characters = [
+            "Draupadi - Panchali",
+            "Krishna - Govinda", 
+            "Arjuna - Partha",
+            "Yudhishthira - Dharmaraja",
+            "Bhima - Vrikodara",
+            "Karna - Radheya"
+        ]
+        for char in characters:
+            st.caption(f"• {char}")
 
 if __name__ == "__main__":
     main()
