@@ -7,10 +7,11 @@ import chromadb
 from typing import List, Dict
 import time
 import re
+import glob
 
 # Custom CSS for superior readability and performance
 st.set_page_config(
-    page_title="Mahabharata AI Scholar - Cloud Edition",
+    page_title="Mahabharata AI Scholar - Complete Edition",
     page_icon="🕉️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -18,7 +19,6 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Main styling for readability */
     .main-header {
         font-size: 2.8rem;
         color: #2E86AB;
@@ -36,24 +36,6 @@ st.markdown("""
         margin-bottom: 2rem;
         font-weight: 400;
     }
-    
-    /* Question box styling */
-    .question-input {
-        background-color: #FFFFFF;
-        border: 2px solid #E0E0E0;
-        border-radius: 12px;
-        padding: 15px;
-        font-size: 1.1em;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-    .question-input:focus {
-        border-color: #2E86AB;
-        box-shadow: 0 4px 8px rgba(46, 134, 171, 0.2);
-    }
-    
-    /* Answer box with excellent readability */
     .answer-box {
         background: linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%);
         padding: 25px;
@@ -66,37 +48,6 @@ st.markdown("""
         color: #2D3748;
         font-family: 'Georgia', serif;
     }
-    
-    /* Sample questions styling */
-    .sample-question {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 12px 16px;
-        border-radius: 10px;
-        margin: 8px 0;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border: none;
-        text-align: left;
-        font-size: 0.95em;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        width: 100%;
-    }
-    .sample-question:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-    }
-    
-    /* Metrics and badges */
-    .metric-box {
-        background: linear-gradient(135deg, #FFFFFF 0%, #F7FAFC 100%);
-        padding: 15px;
-        border-radius: 12px;
-        border: 2px solid #E2E8F0;
-        text-align: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    }
     .source-badge {
         background: linear-gradient(135deg, #2E86AB, #A23B72);
         color: white;
@@ -108,88 +59,172 @@ st.markdown("""
         font-weight: 500;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    .sidebar-content {
+        background: linear-gradient(180deg, #F8F9FA 0%, #FFFFFF 100%);
+        padding: 20px;
+        border-radius: 15px;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-class HighPerformanceMahabharataRAG:
+class RobustMahabharataRAG:
     def __init__(self):
-        # Cache the embedding model
-        if 'embedder' not in st.session_state:
-            with st.spinner("🔄 Loading AI models..."):
-                st.session_state.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        
-        self.embedder = st.session_state.embedder
-        
-        # Initialize vector store with error handling for existing collections
-        self.client = chromadb.EphemeralClient()
+        # Initialize with error handling
         try:
-            # Try to get existing collection first
-            self.collection = self.client.get_collection("mahabharata_cloud_v2")
-            st.sidebar.info("✅ Using existing knowledge base")
-        except Exception:
-            # If collection doesn't exist, create it
-            self.collection = self.client.create_collection("mahabharata_cloud_v2")
-            st.sidebar.info("🔄 Creating new knowledge base")
-        
-        # Load knowledge base with caching
-        self.load_knowledge_base()
-        
+            # Cache the embedding model
+            if 'embedder' not in st.session_state:
+                with st.spinner("🔄 Loading AI models..."):
+                    st.session_state.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+            
+            self.embedder = st.session_state.embedder
+            
+            # Initialize ChromaDB with persistence
+            self.client = chromadb.PersistentClient(path="./chroma_db")
+            
+            # Try to get existing collection or create new one
+            try:
+                self.collection = self.client.get_collection("mahabharata_complete")
+                st.sidebar.info("✅ Using existing knowledge base")
+            except Exception:
+                self.collection = self.client.create_collection("mahabharata_complete")
+                st.sidebar.info("🔄 Creating new knowledge base")
+            
+            # Load knowledge base
+            self.load_knowledge_base()
+            
+        except Exception as e:
+            st.error(f"❌ Failed to initialize RAG system: {e}")
+            raise
+    
     def load_knowledge_base(self):
-        """Load pre-processed Mahabharata chunks with caching"""
+        """Load all available Mahabharata data with comprehensive fallbacks"""
         try:
-            if 'knowledge_loaded' not in st.session_state:
-                with st.spinner("📚 Loading Mahabharata knowledge..."):
-                    # Try complete Mahabharata first, fallback to single file
-                    data_files = [
-                        'data/processed/complete_mahabharata.json',
-                        'data/processed/chunks.json'
-                    ]
-                    
-                    chunks = []
-                    for data_file in data_files:
-                        if os.path.exists(data_file):
-                            try:
-                                with open(data_file, 'r', encoding='utf-8') as f:
-                                    file_chunks = json.load(f)
-                                chunks.extend(file_chunks)
-                                st.sidebar.success(f"✅ Loaded {len(file_chunks)} chunks from {os.path.basename(data_file)}")
-                                break
-                            except Exception as e:
-                                st.sidebar.warning(f"⚠️ Could not load {data_file}: {e}")
-                                continue
-                    
-                    if not chunks:
-                        st.error("❌ No Mahabharata data files found!")
-                        return
-                    
-                    # Add to vector store (only if collection is empty)
-                    if self.collection.count() == 0:
-                        documents = [chunk['content'] for chunk in chunks[:400]]
-                        embeddings = self.embedder.encode(documents).tolist()
-                        metadatas = [{
-                            'section_id': chunk.get('section_id', ''),
-                            'parva': chunk.get('full_parva', chunk.get('parva', 'UNKNOWN')),
-                            'chunk_id': chunk.get('chunk_id', ''),
-                            'source_file': chunk.get('source_file', 'unknown')
-                        } for chunk in chunks[:400]]
-                        
-                        self.collection.add(
-                            embeddings=embeddings,
-                            documents=documents,
-                            metadatas=metadatas,
-                            ids=[f"chunk_{i}" for i in range(len(documents))]
-                        )
-                    
-                    st.session_state.knowledge_loaded = True
-                    st.session_state.loaded_chunks_count = self.collection.count()
+            # Check if knowledge is already loaded
+            if self.collection.count() > 0:
+                st.session_state.knowledge_loaded = True
+                st.session_state.loaded_chunks_count = self.collection.count()
+                st.sidebar.success(f"✅ Knowledge base ready: {self.collection.count()} chunks")
+                return
             
-            st.sidebar.success(f"✅ Knowledge base ready: {st.session_state.loaded_chunks_count} chunks")
-            
+            with st.spinner("📚 Loading Mahabharata knowledge base..."):
+                all_chunks = []
+                
+                # Try to load complete processed data first
+                complete_data_path = "data/processed/complete_mahabharata.json"
+                if os.path.exists(complete_data_path):
+                    try:
+                        with open(complete_data_path, 'r', encoding='utf-8') as f:
+                            complete_chunks = json.load(f)
+                        all_chunks.extend(complete_chunks)
+                        st.sidebar.success(f"✅ Loaded {len(complete_chunks)} chunks from complete Mahabharata")
+                    except Exception as e:
+                        st.sidebar.warning(f"⚠️ Could not load complete data: {e}")
+                
+                # If no complete data, try individual files
+                if not all_chunks:
+                    individual_files = glob.glob("data/processed/*_chunks.json")
+                    for file_path in individual_files:
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                chunks = json.load(f)
+                            all_chunks.extend(chunks)
+                            st.sidebar.info(f"📖 Loaded {len(chunks)} from {os.path.basename(file_path)}")
+                        except Exception as e:
+                            st.sidebar.warning(f"⚠️ Could not load {file_path}: {e}")
+                
+                # Last resort: process raw files on the fly
+                if not all_chunks:
+                    all_chunks = self.process_raw_files()
+                
+                if not all_chunks:
+                    st.error("❌ No Mahabharata data found! Please check your data files.")
+                    return
+                
+                # Add chunks to vector store
+                self.add_chunks_to_store(all_chunks)
+                
+                st.session_state.knowledge_loaded = True
+                st.session_state.loaded_chunks_count = len(all_chunks)
+                st.sidebar.success(f"✅ Knowledge base loaded: {len(all_chunks)} chunks")
+                
         except Exception as e:
             st.error(f"❌ Error loading knowledge base: {e}")
     
-    def retrieve_context(self, query: str, k: int = 5) -> List[Dict]:
-        """Fast context retrieval with timeout protection"""
+    def process_raw_files(self):
+        """Process raw Mahabharata files as last resort"""
+        try:
+            st.sidebar.warning("🔄 Processing raw files...")
+            
+            raw_files = glob.glob("data/raw/maha*.txt")
+            if not raw_files:
+                return []
+            
+            all_chunks = []
+            
+            for file_path in raw_files[:3]:  # Process first 3 files for speed
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Simple chunking
+                    paragraphs = re.split(r'\n\s*\n', content)
+                    chunks = []
+                    
+                    for i, para in enumerate(paragraphs[:50]):  # Limit chunks
+                        if len(para.strip()) > 100:
+                            chunks.append({
+                                'content': para.strip(),
+                                'chunk_id': f"{os.path.basename(file_path)}_{i}",
+                                'section_id': 'AUTO',
+                                'parva': 'AUTO_PROCESSED',
+                                'word_count': len(para.split())
+                            })
+                    
+                    all_chunks.extend(chunks)
+                    st.sidebar.info(f"📄 Processed {len(chunks)} from {os.path.basename(file_path)}")
+                    
+                except Exception as e:
+                    st.sidebar.warning(f"⚠️ Error processing {file_path}: {e}")
+            
+            return all_chunks
+            
+        except Exception as e:
+            st.error(f"❌ Error processing raw files: {e}")
+            return []
+    
+    def add_chunks_to_store(self, chunks: List[Dict]):
+        """Add chunks to vector store with proper batching"""
+        try:
+            # Use more chunks for better coverage
+            chunks_to_add = chunks[:600]  # Increased from 400 to 600
+            
+            documents = [chunk['content'] for chunk in chunks_to_add]
+            embeddings = self.embedder.encode(documents).tolist()
+            metadatas = [{
+                'section_id': chunk.get('section_id', ''),
+                'parva': chunk.get('full_parva', chunk.get('parva', 'UNKNOWN')),
+                'chunk_id': chunk.get('chunk_id', ''),
+                'source_file': chunk.get('source_file', 'unknown'),
+                'word_count': chunk.get('word_count', 0)
+            } for chunk in chunks_to_add]
+            
+            ids = [chunk.get('global_chunk_id', f"chunk_{i}") for i, chunk in enumerate(chunks_to_add)]
+            
+            self.collection.add(
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids
+            )
+            
+            st.sidebar.success(f"📚 Added {len(documents)} chunks to knowledge base")
+            
+        except Exception as e:
+            st.error(f"❌ Error adding chunks to store: {e}")
+    
+    def retrieve_context(self, query: str, k: int = 6) -> List[Dict]:  # Increased k from 5 to 6
+        """Improved context retrieval with better matching"""
         try:
             query_embedding = self.embedder.encode(query).tolist()
             
@@ -206,7 +241,8 @@ class HighPerformanceMahabharataRAG:
                 results['distances'][0]
             ):
                 similarity_score = max(0.0, 1 - distance)
-                if similarity_score > 0.15:  # Higher threshold for better quality
+                # Lower threshold to catch more relevant results
+                if similarity_score > 0.1:  # Reduced from 0.15 to 0.1
                     contexts.append({
                         'content': doc,
                         'metadata': metadata,
@@ -216,90 +252,154 @@ class HighPerformanceMahabharataRAG:
             return contexts
             
         except Exception as e:
-            st.error(f"Retrieval error: {e}")
+            st.error(f"🔍 Retrieval error: {e}")
             return []
     
-    def generate_answer(self, question: str, contexts: List[Dict]) -> str:
-        """Generate answer with multiple fallback strategies"""
+    def generate_enhanced_answer(self, question: str, contexts: List[Dict]) -> str:
+        """Generate comprehensive answers with better context usage"""
         if not contexts:
-            return self.get_no_answer_template(question)
+            return self.get_enhanced_no_answer_template(question)
         
-        # Enhanced template answer (primary method)
-        return self.enhanced_template_answer(question, contexts)
-    
-    def enhanced_template_answer(self, question: str, contexts: List[Dict]) -> str:
-        """High-quality template-based answer"""
-        # Group by parva
-        parva_groups = {}
-        for ctx in contexts:
-            parva = ctx['metadata']['parva']
-            if parva not in parva_groups:
-                parva_groups[parva] = []
-            parva_groups[parva].append(ctx)
+        # Build detailed answer using all contexts
+        answer_parts = []
         
-        # Build answer
-        answer_parts = [f"## 📖 Answer\n"]
+        # Main answer section
+        answer_parts.append("## 📖 Comprehensive Answer\n")
         
-        # Main answer from best context
-        if contexts:
-            best_ctx = max(contexts, key=lambda x: x['similarity_score'])
-            main_info = self.extract_core_info(best_ctx['content'])
-            answer_parts.append(f"\n{main_info}\n")
+        # Extract and combine information from all contexts
+        combined_info = self.combine_context_information(contexts)
+        answer_parts.append(combined_info)
         
-        # Add supporting information from different parvas
-        if len(parva_groups) > 1:
-            answer_parts.append("\n### 🔍 Additional Insights:\n")
-            for parva, ctx_list in list(parva_groups.items())[:3]:
-                if ctx_list:
-                    sample_text = ctx_list[0]['content']
-                    # Extract the most meaningful sentence
-                    sentences = re.split(r'[.!?]+', sample_text)
-                    meaningful = [s.strip() for s in sentences if len(s.strip()) > 20]
-                    if meaningful:
-                        sample = meaningful[0] + "."
-                        answer_parts.append(f"• **{parva}**: {sample}\n")
+        # Add specific examples if available
+        specific_examples = self.extract_specific_examples(contexts, question)
+        if specific_examples:
+            answer_parts.append("\n### 🔍 Specific Details:\n")
+            answer_parts.append(specific_examples)
         
         # Add source information
-        answer_parts.append(f"\n*Based on analysis of {len(contexts)} sources across {len(parva_groups)} parvas of the Mahabharata.*")
+        source_info = self.get_source_information(contexts)
+        answer_parts.append(f"\n{source_info}")
         
         return "\n".join(answer_parts)
+    
+    def combine_context_information(self, contexts: List[Dict]) -> str:
+        """Combine information from multiple contexts"""
+        # Sort by similarity score
+        sorted_contexts = sorted(contexts, key=lambda x: x['similarity_score'], reverse=True)
+        
+        combined_texts = []
+        used_content = set()
+        
+        for ctx in sorted_contexts:
+            content = ctx['content']
+            # Avoid duplicate content
+            content_hash = hash(content[:100])
+            if content_hash not in used_content:
+                combined_texts.append(content)
+                used_content.add(content_hash)
+        
+        # Take top 3 most relevant contexts
+        top_contexts = combined_texts[:3]
+        
+        # Simple combination - in production, you'd use an LLM here
+        if top_contexts:
+            main_info = self.extract_core_info(top_contexts[0])
+            supporting_info = " ".join([self.extract_key_points(ctx) for ctx in top_contexts[1:]])
+            
+            return f"{main_info}\n\n{supporting_info}"
+        else:
+            return "Based on the available text, here's what I found..."
+    
+    def extract_specific_examples(self, contexts: List[Dict], question: str) -> str:
+        """Extract specific examples relevant to the question"""
+        examples = []
+        question_lower = question.lower()
+        
+        for ctx in contexts[:2]:  # Use top 2 contexts for examples
+            content = ctx['content']
+            
+            # Look for specific patterns based on question type
+            if any(keyword in question_lower for keyword in ['who is', 'who are', 'describe']):
+                # Extract character descriptions
+                sentences = re.split(r'[.!?]+', content)
+                descriptive_sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+                if descriptive_sentences:
+                    examples.append(f"• {descriptive_sentences[0]}.")
+            
+            elif any(keyword in question_lower for keyword in ['what is', 'explain', 'meaning']):
+                # Extract explanatory sentences
+                sentences = re.split(r'[.!?]+', content)
+                explanatory = [s.strip() for s in sentences if any(word in s.lower() for word in ['is', 'means', 'defined', 'called'])]
+                if explanatory:
+                    examples.append(f"• {explanatory[0]}.")
+        
+        return "\n".join(examples) if examples else ""
     
     def extract_core_info(self, text: str) -> str:
         """Extract the most relevant information from text"""
         sentences = re.split(r'[.!?]+', text)
-        meaningful_sentences = [s.strip() for s in sentences if len(s.strip()) > 30]
-        return " ".join(meaningful_sentences[:3]) + "."
+        meaningful_sentences = [s.strip() for s in sentences if len(s.strip()) > 25]
+        return " ".join(meaningful_sentences[:2]) + "."
     
-    def get_no_answer_template(self, question: str) -> str:
-        """Template for when no good context is found"""
+    def extract_key_points(self, text: str) -> str:
+        """Extract key points from text"""
+        sentences = re.split(r'[.!?]+', text)
+        key_sentences = [s.strip() for s in sentences if len(s.strip()) > 15]
+        return " ".join(key_sentences[:1]) + "."
+    
+    def get_source_information(self, contexts: List[Dict]) -> str:
+        """Get information about sources used"""
+        parva_counts = {}
+        for ctx in contexts:
+            parva = ctx['metadata']['parva']
+            parva_counts[parva] = parva_counts.get(parva, 0) + 1
+        
+        parva_list = [f"{parva} ({count})" for parva, count in parva_counts.items()]
+        return f"*Information synthesized from {len(contexts)} sources across {len(parva_counts)} parvas: {', '.join(parva_list)}*"
+    
+    def get_enhanced_no_answer_template(self, question: str) -> str:
+        """Enhanced template for when no good context is found"""
         return f"""## 🔍 Information Not Found
 
-I couldn't find specific information about **"{question}"** in the available Mahabharata text.
+I searched through the available Mahabharata text but couldn't find specific information about **"{question}"**.
 
-**💡 Suggestions:**
-- Try rephrasing your question
-- Ask about major characters like Krishna, Arjuna, or Yudhishthira
-- Inquire about key events like the Kurukshetra war
-- Explore philosophical concepts like Dharma or Karma
+**🤔 This could be because:**
+- The information might be in parts of the text not currently loaded
+- Your question might need rephrasing for better matching
+- The concept might be known by a different name in the text
 
-**📚 Available Topics:**
-- Character histories and relationships
-- Philosophical teachings (Bhagavad Gita)
-- Major events and battles  
-- Moral dilemmas and lessons
-- Cultural and spiritual insights"""
+**💡 Try these approaches:**
+- Rephrase your question (e.g., "Tell me about Krishna's role" instead of "Who is Krishna")
+- Ask about specific events or relationships
+- Use the character's full name or common epithets
+- Break complex questions into simpler ones
+
+**🎯 Sample questions that work well:**
+- "Describe Krishna's role in the Kurukshetra war"
+- "What is the relationship between Krishna and Arjuna?"
+- "Tell me about the Bhagavad Gita teachings"
+- "Who are the main Pandava brothers?"""
 
     def query(self, question: str) -> Dict:
-        """Fast query method with timeout protection"""
+        """Comprehensive query method with enhanced retrieval"""
         start_time = time.time()
         
-        # Quick context retrieval
-        contexts = self.retrieve_context(question, k=4)
+        # Enhanced context retrieval with query expansion
+        contexts = self.retrieve_context(question, k=6)
+        
+        # If no contexts found, try with expanded query
+        if not contexts:
+            expanded_queries = self.expand_query(question)
+            for expanded_query in expanded_queries:
+                contexts = self.retrieve_context(expanded_query, k=4)
+                if contexts:
+                    break
+        
         retrieval_time = time.time() - start_time
         
-        # Generate answer
+        # Generate comprehensive answer
         gen_start = time.time()
-        answer = self.generate_answer(question, contexts)
+        answer = self.generate_enhanced_answer(question, contexts)
         generation_time = time.time() - gen_start
         
         total_time = time.time() - start_time
@@ -315,14 +415,49 @@ I couldn't find specific information about **"{question}"** in the available Mah
             'sources_count': len(contexts),
             'parvas_used': list(set(ctx['metadata']['parva'] for ctx in contexts)) if contexts else []
         }
+    
+    def expand_query(self, question: str) -> List[str]:
+        """Expand query with variations for better retrieval"""
+        question_lower = question.lower()
+        expansions = [question]
+        
+        # Add common variations
+        if 'krishna' in question_lower:
+            expansions.extend([
+                f"{question} in Mahabharata",
+                "Krishna role Kurukshetra war",
+                "Krishna and Arjuna relationship",
+                "Lord Krishna Mahabharata",
+                "Krishna Bhagavad Gita"
+            ])
+        elif 'arjuna' in question_lower:
+            expansions.extend([
+                f"{question} Pandava",
+                "Arjuna archery skills",
+                "Arjuna and Krishna",
+                "Pandava brothers"
+            ])
+        elif 'pandava' in question_lower:
+            expansions.extend([
+                "five Pandava brothers",
+                "Yudhishthira Bhima Arjuna Nakula Sahadeva",
+                "Pandava family"
+            ])
+        
+        return expansions
 
 def main():
     st.markdown('<h1 class="main-header">🕉️ Mahabharata AI Scholar</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Cloud Edition • Instant Answers • Superior Readability</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Complete Edition • Enhanced Retrieval • Better Answers</p>', unsafe_allow_html=True)
     
     # Initialize session state
     if 'rag' not in st.session_state:
-        st.session_state.rag = HighPerformanceMahabharataRAG()
+        try:
+            st.session_state.rag = RobustMahabharataRAG()
+        except Exception as e:
+            st.error(f"❌ Failed to initialize: {e}")
+            st.info("💡 Please check that Ollama is running and data files are available")
+            return
     
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
@@ -333,25 +468,24 @@ def main():
     if 'answer_trigger' not in st.session_state:
         st.session_state.answer_trigger = False
     
-    # Sidebar with improved layout
+    # Sidebar
     with st.sidebar:
         st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
         st.header("🚀 Quick Questions")
         
         sample_questions = [
-            "Who are the five Pandava brothers and their unique qualities?",
-            "What is the main message of the Bhagavad Gita?",
-            "Describe Krishna's role in the Kurukshetra war",
-            "What caused the conflict between Pandavas and Kauravas?",
-            "Explain the concept of Dharma with examples",
-            "Tell me about Arjuna's exceptional archery skills",
-            "What is the significance of Draupadi's character?",
-            "Describe Yudhishthira's commitment to truth",
-            "What lessons does Bhishma's life teach us?",
-            "Explain Karna's tragic destiny and choices"
+            "Who is Krishna and what is his role?",
+            "Tell me about the Pandava brothers",
+            "What is the Bhagavad Gita about?",
+            "Describe the Kurukshetra war",
+            "Who is Arjuna and what are his skills?",
+            "Explain the concept of Dharma",
+            "What is Yudhishthira known for?",
+            "Tell me about Draupadi's character",
+            "Who are the main Kauravas?",
+            "What is Bhishma's role in the story?"
         ]
         
-        # Use form to handle sample question clicks properly
         with st.form("sample_questions_form"):
             selected_question = st.selectbox(
                 "Choose a sample question:",
@@ -397,7 +531,7 @@ def main():
                 key="main_question_input"
             )
             
-            submitted = st.form_submit_button("🚀 Get Instant Answer", use_container_width=True)
+            submitted = st.form_submit_button("🚀 Get Comprehensive Answer", use_container_width=True)
             
             if submitted and question.strip():
                 st.session_state.current_question = question.strip()
@@ -409,7 +543,7 @@ def main():
             question = st.session_state.current_question
             
             # Show loading state
-            with st.spinner("🔍 Searching across all parvas..."):
+            with st.spinner("🔍 Enhanced search across all parvas..."):
                 result = st.session_state.rag.query(question)
             
             # Store in history
@@ -458,12 +592,12 @@ def main():
         facts = [
             "📚 18 Sacred Books",
             "👑 100+ Epic Characters", 
-            "⚔️ Righteous War Theme",
-            "🕉️ Spiritual Wisdom",
-            "🎯 Moral Complexity",
-            "🌍 Cultural Heritage",
-            "📖 World's Longest Epic",
-            "💡 Life Lessons"
+            "⚔️ Kurukshetra War",
+            "🕉️ Bhagavad Gita",
+            "📖 Longest Epic Poem",
+            "🌍 Ancient Indian Wisdom",
+            "💡 Philosophical Depth",
+            "🎭 Complex Relationships"
         ]
         for fact in facts:
             st.info(fact)
@@ -474,8 +608,7 @@ def main():
             recent_chats = list(reversed(st.session_state.chat_history[-5:]))
             
             for i, chat in enumerate(recent_chats):
-                # Shorten question for display
-                display_question = chat['question'][:50] + "..." if len(chat['question']) > 50 else chat['question']
+                display_question = chat['question'][:45] + "..." if len(chat['question']) > 45 else chat['question']
                 
                 if st.button(
                     f"Q: {display_question}",
